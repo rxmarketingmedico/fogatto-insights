@@ -193,9 +193,10 @@ export const publishMetaAd = createServerFn({ method: "POST" })
         access_token: accessToken,
       }),
     });
-    const adImageData = await adImageRes.json();
+    const adImageData = await adImageRes.json() as any;
     if (adImageData.error) throw new Error(`Erro AdImage: ${adImageData.error.message}`);
-    const imageHash = Object.values(adImageData.images)[0].hash;
+    const imageHash = Object.values(adImageData.images)[0] as any;
+    const hash = imageHash.hash;
 
     // 3. Create Campaign
     const metaCampaignRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/campaigns`, {

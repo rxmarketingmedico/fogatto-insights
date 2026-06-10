@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/app/settings/meta-callback
 });
 
 function MetaCallbackPage() {
-  const { code, state } = Route.useSearch<{ code?: string; state?: string }>();
+  const { code, state } = Route.useSearch() as { code?: string; state?: string };
   const processCallback = useServerFn(handleMetaCallback);
 
   useEffect(() => {
