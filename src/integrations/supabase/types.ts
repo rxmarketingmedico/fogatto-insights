@@ -22,6 +22,7 @@ export type Database = {
           date: string
           id: string
           restaurant_id: string
+          source: string
         }
         Insert: {
           amount: number
@@ -30,6 +31,7 @@ export type Database = {
           date: string
           id?: string
           restaurant_id: string
+          source?: string
         }
         Update: {
           amount?: number
@@ -38,6 +40,7 @@ export type Database = {
           date?: string
           id?: string
           restaurant_id?: string
+          source?: string
         }
         Relationships: [
           {
@@ -63,7 +66,11 @@ export type Database = {
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_campaign_id: string | null
+          meta_clicks: number
+          meta_impressions: number
+          meta_last_synced_at: string | null
           meta_published_at: string | null
+          meta_reach: number
           meta_status: string | null
           name: string
           platform: Database["public"]["Enums"]["campaign_platform"]
@@ -78,7 +85,11 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_clicks?: number
+          meta_impressions?: number
+          meta_last_synced_at?: string | null
           meta_published_at?: string | null
+          meta_reach?: number
           meta_status?: string | null
           name: string
           platform: Database["public"]["Enums"]["campaign_platform"]
@@ -93,7 +104,11 @@ export type Database = {
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_clicks?: number
+          meta_impressions?: number
+          meta_last_synced_at?: string | null
           meta_published_at?: string | null
+          meta_reach?: number
           meta_status?: string | null
           name?: string
           platform?: Database["public"]["Enums"]["campaign_platform"]
