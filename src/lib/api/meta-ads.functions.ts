@@ -335,6 +335,11 @@ export const publishMetaAd = createServerFn({ method: "POST" })
         genderIds: z.array(z.number()).optional(),
         locationKey: z.string().optional(),
         locationRadius: z.number().default(15),
+        schedules: z.array(z.object({
+          days: z.array(z.number()),
+          startHour: z.number(),
+          endHour: z.number(),
+        })).optional().default([]),
       })
     }).parse(data)
   )
@@ -428,6 +433,15 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     };
     if (data.adData.endDate) {
       adSetBody.end_time = Math.floor(new Date(data.adData.endDate + "T23:59:59").getTime() / 1000);
+    }
+
+    if (data.adData.schedules && data.adData.schedules.length > 0) {
+      adSetBody.adschedules = data.adData.schedules.map(s => ({
+        start_minute: s.startHour * 60,
+        end_minute: s.endHour * 60,
+        days: s.days,
+        timezone_type: "USER",
+      }));
     }
 
     const adSetRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/adsets`, {

@@ -80,6 +80,12 @@ type Gender = "all" | "male" | "female";
 
 type CreativeMode = "ai" | "upload" | "url";
 
+interface AdSchedule {
+  days: number[];      // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
+  startHour: number;  // 0-23
+  endHour: number;    // 1-24
+}
+
 interface WizardState {
   objective: Objective;
   ageMin: number;
@@ -93,6 +99,8 @@ interface WizardState {
   budget: string;
   startDate: string;
   endDate: string;
+  enableScheduling: boolean;
+  schedules: AdSchedule[];
   creativeMode: CreativeMode;
   selectedMenuItemId: string;
   imageUrl: string;
@@ -113,12 +121,110 @@ const DEFAULT_WIZARD: WizardState = {
   budget: "20",
   startDate: new Date().toISOString().slice(0, 10),
   endDate: "",
+  enableScheduling: false,
+  schedules: [],
   creativeMode: "ai",
   selectedMenuItemId: "",
   imageUrl: "",
   primaryText: "",
   headline: "",
 };
+
+const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+const SCHEDULE_PRESETS: { label: string; schedules: AdSchedule[] }[] = [
+  {
+    label: "🍽 Almoço",
+    schedules: [{ days: [0,1,2,3,4,5,6], startHour: 11, endHour: 14 }],
+  },
+  {
+    label: "🌙 Jantar",
+    schedules: [{ days: [0,1,2,3,4,5,6], startHour: 18, endHour: 22 }],
+  },
+  {
+    label: "🍽+🌙 Almoço e Jantar",
+    schedules: [
+      { days: [0,1,2,3,4,5,6], startHour: 11, endHour: 14 },
+      { days: [0,1,2,3,4,5,6], startHour: 18, endHour: 22 },
+    ],
+  },
+  {
+    label: "🎉 Fim de semana noturno",
+    schedules: [{ days: [5,6], startHour: 19, endHour: 23 }],
+  },
+];
+
+function ScheduleAdder({ onAdd }: { onAdd: (s: AdSchedule) => void }) {
+  const [days, setDays] = useState<number[]>([0,1,2,3,4,5,6]);
+  const [startHour, setStartHour] = useState(11);
+  const [endHour, setEndHour] = useState(14);
+
+  const toggleDay = (d: number) =>
+    setDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort());
+
+  return (
+    <div className="space-y-3 border rounded-lg p-3 bg-background">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Horário personalizado</p>
+
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Dias da semana</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {DAY_LABELS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => toggleDay(i)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                days.includes(i)
+                  ? "bg-orange-400 text-white border-orange-400"
+                  : "border-border hover:bg-accent"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1 space-y-1">
+          <label className="text-xs text-muted-foreground">Início</label>
+          <select
+            className="w-full border rounded-md px-2 py-1.5 bg-background text-sm"
+            value={startHour}
+            onChange={e => setStartHour(Number(e.target.value))}
+          >
+            {Array.from({ length: 24 }, (_, i) => (
+              <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-muted-foreground text-sm mt-4">até</span>
+        <div className="flex-1 space-y-1">
+          <label className="text-xs text-muted-foreground">Fim</label>
+          <select
+            className="w-full border rounded-md px-2 py-1.5 bg-background text-sm"
+            value={endHour}
+            onChange={e => setEndHour(Number(e.target.value))}
+          >
+            {Array.from({ length: 24 }, (_, i) => i + 1).map(i => (
+              <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        disabled={days.length === 0 || endHour <= startHour}
+        onClick={() => { onAdd({ days, startHour, endHour }); }}
+        className="w-full py-1.5 text-xs font-semibold border rounded-lg hover:bg-accent disabled:opacity-40"
+      >
+        + Adicionar horário
+      </button>
+    </div>
+  );
+}
 
 function CampaignsPage() {
   const fetchRestaurant = useServerFn(getRestaurant);
@@ -332,7 +438,8 @@ function CampaignsPage() {
     if (wizardStep === 3) {
       if (!wizard.budget || parseFloat(wizard.budget) < 5) return false;
       if (!wizard.startDate) return false;
-      if (wizard.budgetType === "lifetime" && !wizard.endDate) return false;
+      if ((wizard.budgetType === "lifetime" || wizard.enableScheduling) && !wizard.endDate) return false;
+      if (wizard.enableScheduling && wizard.schedules.length === 0) return false;
     }
     if (wizardStep === 4) {
       if (!wizard.imageUrl || !wizard.primaryText || !wizard.headline) return false;
@@ -352,7 +459,7 @@ function CampaignsPage() {
         headline: wizard.headline,
         destinationUrl,
         objective: wizard.objective,
-        budgetType: wizard.budgetType,
+        budgetType: wizard.enableScheduling ? "lifetime" : wizard.budgetType,
         budget: parseFloat(wizard.budget),
         startDate: wizard.startDate,
         endDate: wizard.endDate || null,
@@ -361,6 +468,7 @@ function CampaignsPage() {
         genderIds,
         locationKey: wizard.locationKey || undefined,
         locationRadius: wizard.locationRadius,
+        schedules: wizard.enableScheduling ? wizard.schedules : [],
       },
     });
   };
@@ -920,28 +1028,125 @@ function CampaignsPage() {
               {wizardStep === 3 && (
                 <div className="space-y-5">
                   <p className="text-sm text-muted-foreground">
-                    Quanto você quer investir nesta campanha?
+                    Quanto você quer investir e quando exibir o anúncio?
                   </p>
 
-                  {/* Budget type toggle */}
+                  {/* Scheduling toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setWizard(w => ({
+                      ...w,
+                      enableScheduling: !w.enableScheduling,
+                      budgetType: !w.enableScheduling ? "lifetime" : w.budgetType,
+                      schedules: !w.enableScheduling ? [] : w.schedules,
+                    }))}
+                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${
+                      wizard.enableScheduling
+                        ? "border-orange-400 bg-orange-50/50 dark:bg-orange-950/20"
+                        : "border-border hover:border-muted-foreground/50"
+                    }`}
+                  >
+                    <span className="text-xl">🕐</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">Programar horários específicos</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Exibe o anúncio só nos melhores horários para o seu restaurante
+                      </p>
+                    </div>
+                    <div className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+                      wizard.enableScheduling ? "bg-orange-400" : "bg-muted-foreground/30"
+                    }`}>
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        wizard.enableScheduling ? "translate-x-4" : "translate-x-0.5"
+                      }`} />
+                    </div>
+                  </button>
+
+                  {wizard.enableScheduling && (
+                    <div className="space-y-4 border rounded-xl p-4 bg-orange-50/30 dark:bg-orange-950/10">
+                      <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                        Programação requer orçamento total — o tipo foi definido automaticamente.
+                      </p>
+
+                      {/* Presets */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Atalhos comuns para restaurantes
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {SCHEDULE_PRESETS.map(preset => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setWizard(w => ({ ...w, schedules: preset.schedules }))}
+                              className="p-2.5 text-left rounded-lg border hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors text-xs font-medium"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom schedule adder */}
+                      <ScheduleAdder
+                        onAdd={s => setWizard(w => ({ ...w, schedules: [...w.schedules, s] }))}
+                      />
+
+                      {/* Added schedules */}
+                      {wizard.schedules.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Horários configurados
+                          </label>
+                          {wizard.schedules.map((s, i) => (
+                            <div key={i} className="flex items-center gap-2 bg-background rounded-lg border px-3 py-2 text-xs">
+                              <span className="font-medium flex-1">
+                                {s.days.map(d => DAY_LABELS[d]).join(", ")}
+                                {" · "}
+                                {String(s.startHour).padStart(2, "0")}h–{String(s.endHour).padStart(2, "0")}h
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setWizard(w => ({ ...w, schedules: w.schedules.filter((_, j) => j !== i) }))}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {wizard.enableScheduling && wizard.schedules.length === 0 && (
+                        <p className="text-xs text-destructive">Adicione pelo menos um horário.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Budget type toggle (disabled when scheduling is on) */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Tipo de orçamento</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {([["daily", "Diário", "Renova todo dia"] as const, ["lifetime", "Total da campanha", "Gasta até encerrar"] as const]).map(([val, label, desc]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setWizard(w => ({ ...w, budgetType: val }))}
-                          className={`p-3 rounded-xl border-2 text-left transition-all ${
-                            wizard.budgetType === val
-                              ? "border-[#1877F2] bg-blue-50/50 dark:bg-blue-950/20"
-                              : "border-border hover:border-muted-foreground/50"
-                          }`}
-                        >
-                          <p className="text-sm font-semibold">{label}</p>
-                          <p className="text-[11px] text-muted-foreground">{desc}</p>
-                        </button>
-                      ))}
+                      {([["daily", "Diário", "Renova todo dia"] as const, ["lifetime", "Total da campanha", "Gasta até encerrar"] as const]).map(([val, label, desc]) => {
+                        const disabled = wizard.enableScheduling && val === "daily";
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => setWizard(w => ({ ...w, budgetType: val }))}
+                            className={`p-3 rounded-xl border-2 text-left transition-all ${
+                              disabled ? "opacity-40 cursor-not-allowed" :
+                              wizard.budgetType === val
+                                ? "border-[#1877F2] bg-blue-50/50 dark:bg-blue-950/20"
+                                : "border-border hover:border-muted-foreground/50"
+                            }`}
+                          >
+                            <p className="text-sm font-semibold">{label}</p>
+                            <p className="text-[11px] text-muted-foreground">{desc}</p>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -963,7 +1168,6 @@ function CampaignsPage() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">Mínimo de R$ 5,00.</p>
-                    {/* Quick values */}
                     <div className="flex gap-2 pt-1">
                       {(wizard.budgetType === "daily" ? [10, 20, 30, 50] : [100, 200, 500]).map(v => (
                         <button
@@ -1007,8 +1211,8 @@ function CampaignsPage() {
                       />
                     </div>
                   </div>
-                  {wizard.budgetType === "lifetime" && !wizard.endDate && (
-                    <p className="text-xs text-destructive">Data de fim obrigatória para orçamento total.</p>
+                  {(wizard.budgetType === "lifetime" || wizard.enableScheduling) && !wizard.endDate && (
+                    <p className="text-xs text-destructive">Data de fim obrigatória.</p>
                   )}
                 </div>
               )}
