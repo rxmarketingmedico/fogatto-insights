@@ -2,11 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
 import { handleMetaCallback } from "@/lib/api/meta-ads.functions";
-import { toast } from "sonner";
 
-export const Route = createFileRoute(
-  "/_authenticated/app/settings/meta-callback",
-)({
+export const Route = createFileRoute("/meta-callback")({
   component: MetaCallbackPage,
 });
 
@@ -16,7 +13,6 @@ function MetaCallbackPage() {
 
   useEffect(() => {
     async function handle() {
-      // Check for error in URL (common if user cancels or there's a config issue)
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get("error");
       const errorDescription = urlParams.get("error_description");
@@ -33,14 +29,13 @@ function MetaCallbackPage() {
       if (code && state) {
         try {
           const result = await processCallback({ data: { code, state } });
-          // Store result in localStorage so the main window can pick it up
           localStorage.setItem("meta_callback_result", JSON.stringify(result));
           window.close();
-        } catch (error: any) {
-          console.error(error);
+        } catch (err: any) {
+          console.error(err);
           localStorage.setItem(
             "meta_callback_result",
-            JSON.stringify({ error: error.message }),
+            JSON.stringify({ error: err.message }),
           );
           window.close();
         }
