@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MetaCallbackRouteImport } from './routes/meta-callback'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,8 +21,12 @@ import { Route as AuthenticatedAppOrdersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
 import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated.app.customers'
 import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
-import { Route as AuthenticatedAppSettingsMetaCallbackRouteImport } from './routes/_authenticated.app.settings.meta-callback'
 
+const MetaCallbackRoute = MetaCallbackRouteImport.update({
+  id: '/meta-callback',
+  path: '/meta-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -79,58 +84,53 @@ const AuthenticatedAppCampaignsRoute =
     path: '/campaigns',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
-const AuthenticatedAppSettingsMetaCallbackRoute =
-  AuthenticatedAppSettingsMetaCallbackRouteImport.update({
-    id: '/meta-callback',
-    path: '/meta-callback',
-    getParentRoute: () => AuthenticatedAppSettingsRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
-  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
-  '/app/settings/meta-callback': typeof AuthenticatedAppSettingsMetaCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
-  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app': typeof AuthenticatedAppIndexRoute
-  '/app/settings/meta-callback': typeof AuthenticatedAppSettingsMetaCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRoute
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
   '/_authenticated/app/orders': typeof AuthenticatedAppOrdersRoute
-  '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/app/settings/meta-callback': typeof AuthenticatedAppSettingsMetaCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/meta-callback'
     | '/app'
     | '/r/$slug'
     | '/app/campaigns'
@@ -139,11 +139,11 @@ export interface FileRouteTypes {
     | '/app/orders'
     | '/app/settings'
     | '/app/'
-    | '/app/settings/meta-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/meta-callback'
     | '/r/$slug'
     | '/app/campaigns'
     | '/app/customers'
@@ -151,12 +151,12 @@ export interface FileRouteTypes {
     | '/app/orders'
     | '/app/settings'
     | '/app'
-    | '/app/settings/meta-callback'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/meta-callback'
     | '/_authenticated/app'
     | '/r/$slug'
     | '/_authenticated/app/campaigns'
@@ -165,18 +165,25 @@ export interface FileRouteTypes {
     | '/_authenticated/app/orders'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
-    | '/_authenticated/app/settings/meta-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
+  MetaCallbackRoute: typeof MetaCallbackRoute
   RSlugRoute: typeof RSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/meta-callback': {
+      id: '/meta-callback'
+      path: '/meta-callback'
+      fullPath: '/meta-callback'
+      preLoaderRoute: typeof MetaCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -254,37 +261,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCampaignsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/app/settings/meta-callback': {
-      id: '/_authenticated/app/settings/meta-callback'
-      path: '/meta-callback'
-      fullPath: '/app/settings/meta-callback'
-      preLoaderRoute: typeof AuthenticatedAppSettingsMetaCallbackRouteImport
-      parentRoute: typeof AuthenticatedAppSettingsRoute
-    }
   }
 }
-
-interface AuthenticatedAppSettingsRouteChildren {
-  AuthenticatedAppSettingsMetaCallbackRoute: typeof AuthenticatedAppSettingsMetaCallbackRoute
-}
-
-const AuthenticatedAppSettingsRouteChildren: AuthenticatedAppSettingsRouteChildren =
-  {
-    AuthenticatedAppSettingsMetaCallbackRoute:
-      AuthenticatedAppSettingsMetaCallbackRoute,
-  }
-
-const AuthenticatedAppSettingsRouteWithChildren =
-  AuthenticatedAppSettingsRoute._addFileChildren(
-    AuthenticatedAppSettingsRouteChildren,
-  )
 
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppCampaignsRoute: typeof AuthenticatedAppCampaignsRoute
   AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRoute
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
   AuthenticatedAppOrdersRoute: typeof AuthenticatedAppOrdersRoute
-  AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
+  AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -293,7 +278,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRoute,
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
   AuthenticatedAppOrdersRoute: AuthenticatedAppOrdersRoute,
-  AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
+  AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
@@ -316,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
+  MetaCallbackRoute: MetaCallbackRoute,
   RSlugRoute: RSlugRoute,
 }
 export const routeTree = rootRouteImport
