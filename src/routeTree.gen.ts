@@ -16,6 +16,7 @@ import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated.app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated.app.index'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated.app.settings'
+import { Route as AuthenticatedAppOrdersRouteImport } from './routes/_authenticated.app.orders'
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
 import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
 
@@ -54,6 +55,11 @@ const AuthenticatedAppSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppOrdersRoute = AuthenticatedAppOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppMenuRoute = AuthenticatedAppMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
+  '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
+  '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/r/$slug': typeof RSlugRoute
   '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
+  '/_authenticated/app/orders': typeof AuthenticatedAppOrdersRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/app/campaigns'
     | '/app/menu'
+    | '/app/orders'
     | '/app/settings'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/app/campaigns'
     | '/app/menu'
+    | '/app/orders'
     | '/app/settings'
     | '/app'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/r/$slug'
     | '/_authenticated/app/campaigns'
     | '/_authenticated/app/menu'
+    | '/_authenticated/app/orders'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
@@ -188,6 +200,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSettingsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/orders': {
+      id: '/_authenticated/app/orders'
+      path: '/orders'
+      fullPath: '/app/orders'
+      preLoaderRoute: typeof AuthenticatedAppOrdersRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/menu': {
       id: '/_authenticated/app/menu'
       path: '/menu'
@@ -208,6 +227,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppCampaignsRoute: typeof AuthenticatedAppCampaignsRoute
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
+  AuthenticatedAppOrdersRoute: typeof AuthenticatedAppOrdersRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
@@ -215,6 +235,7 @@ interface AuthenticatedAppRouteChildren {
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppCampaignsRoute: AuthenticatedAppCampaignsRoute,
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
+  AuthenticatedAppOrdersRoute: AuthenticatedAppOrdersRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
@@ -243,3 +264,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
