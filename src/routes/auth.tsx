@@ -15,6 +15,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const navigate = useNavigate();
@@ -24,9 +25,42 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Conta criada! Verifique seu email para confirmar.");
+        const slug = restaurantName
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: {
+              restaurant_name: restaurantName,
+              restaurant_slug: slug
+            }
+          }
+        });
+        
+        if (authError) throw authError;
+
+        if (authData.user) {
+          // If auto-confirm is enabled, we might already have a session
+          // But usually we need to wait for email confirmation or it might auto-login in some configs
+          const { error: dbError } = await supabase.from("restaurants").insert({
+            owner_id: authData.user.id,
+            name: restaurantName,
+            slug: slug,
+            whatsapp_number: "00000000000" // Placeholder to be updated in onboarding
+          });
+          
+          if (dbError) {
+            console.error("Error creating restaurant manually:", dbError);
+          }
+        }
+
+        alert("Conta criada! Verifique seu email para confirmar e acessar seu painel.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -49,6 +83,19 @@ function AuthPage() {
           </p>
         </div>
         <form onSubmit={handleAuth} className="space-y-4">
+          {mode === "signup" && (
+            <div>
+              <label className="block text-sm font-medium">Nome do Restaurante</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Pizzaria do Vale"
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2"
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium">Email</label>
             <input
