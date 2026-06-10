@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRestaurant, updateRestaurant } from "@/lib/api/restaurant.functions";
@@ -11,11 +11,13 @@ export const Route = createFileRoute("/_authenticated/app/settings")({
 function SettingsPage() {
   const fetchRestaurant = useServerFn(getRestaurant);
   const saveRestaurant = useServerFn(updateRestaurant);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: restaurant, isLoading } = useQuery({
     queryKey: ["restaurant"],
     queryFn: () => fetchRestaurant(),
+    retry: false
   });
 
   const [formData, setFormData] = useState({
@@ -38,21 +40,33 @@ function SettingsPage() {
 
   const mutation = useMutation({
     mutationFn: (data: typeof formData) => saveRestaurant({ data }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["restaurant"] });
-      alert("Configurações salvas!");
+      if (isNewRestaurant) {
+        navigate({ to: "/app/menu" });
+      } else {
+        alert("Configurações salvas!");
+      }
     },
     onError: (error: any) => {
       alert(error.message);
     },
   });
 
-  if (isLoading) return <div>Carregando...</div>;
+  if (isLoading) return <div className="p-8">Carregando...</div>;
+
+  const isNewRestaurant = !restaurant || restaurant.whatsapp_number === "00000000000";
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <h1 className="text-3xl font-bold">Configurações do Restaurante</h1>
-      <p className="mt-2 text-muted-foreground">Configure os dados públicos do seu restaurante.</p>
+      <h1 className="text-3xl font-bold">
+        {isNewRestaurant ? "Bem-vindo ao Fogatto!" : "Configurações do Restaurante"}
+      </h1>
+      <p className="mt-2 text-muted-foreground">
+        {isNewRestaurant 
+          ? "Complete o cadastro do seu restaurante para começar a vender." 
+          : "Configure os dados públicos do seu restaurante."}
+      </p>
 
       <form
         onSubmit={(e) => {
@@ -108,9 +122,9 @@ function SettingsPage() {
 
         <button
           disabled={mutation.isPending}
-          className="w-full rounded-md bg-primary py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="w-full rounded-md bg-primary py-3 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 text-lg"
         >
-          {mutation.isPending ? "Salvando..." : "Salvar Configurações"}
+          {mutation.isPending ? "Salvando..." : isNewRestaurant ? "Finalizar Cadastro e Ir para Cardápio" : "Salvar Configurações"}
         </button>
       </form>
     </div>
