@@ -1,10 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
 import { handleMetaCallback } from "@/lib/api/meta-ads.functions";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/app/settings/meta-callback")({
+export const Route = createFileRoute(
+  "/_authenticated/app/settings/meta-callback",
+)({
   component: MetaCallbackPage,
 });
 
@@ -14,6 +16,20 @@ function MetaCallbackPage() {
 
   useEffect(() => {
     async function handle() {
+      // Check for error in URL (common if user cancels or there's a config issue)
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get("error");
+      const errorDescription = urlParams.get("error_description");
+
+      if (error) {
+        localStorage.setItem(
+          "meta_callback_result",
+          JSON.stringify({ error: errorDescription || error }),
+        );
+        window.close();
+        return;
+      }
+
       if (code && state) {
         try {
           const result = await processCallback({ data: { code, state } });
@@ -22,7 +38,10 @@ function MetaCallbackPage() {
           window.close();
         } catch (error: any) {
           console.error(error);
-          toast.error("Erro ao conectar com Meta: " + error.message);
+          localStorage.setItem(
+            "meta_callback_result",
+            JSON.stringify({ error: error.message }),
+          );
           window.close();
         }
       } else {
