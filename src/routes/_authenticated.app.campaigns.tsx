@@ -11,6 +11,8 @@ import {
   getCampaignRoas,
 } from "@/lib/api/dashboard.functions";
 import { publishMetaAd, searchMetaLocations, syncMetaInsights, updateMetaCampaignStatus } from "@/lib/api/meta-ads.functions";
+import { getMenuItemsForAd, generateAdCreative } from "@/lib/api/ai.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useRef } from "react";
 import {
   Plus,
@@ -32,6 +34,10 @@ import {
   Layers,
   Play,
   Pause,
+  Sparkles,
+  Upload,
+  Link,
+  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,6 +78,8 @@ type Objective = "OUTCOME_TRAFFIC" | "OUTCOME_SALES" | "OUTCOME_AWARENESS";
 type BudgetType = "daily" | "lifetime";
 type Gender = "all" | "male" | "female";
 
+type CreativeMode = "ai" | "upload" | "url";
+
 interface WizardState {
   objective: Objective;
   ageMin: number;
@@ -85,6 +93,8 @@ interface WizardState {
   budget: string;
   startDate: string;
   endDate: string;
+  creativeMode: CreativeMode;
+  selectedMenuItemId: string;
   imageUrl: string;
   primaryText: string;
   headline: string;
@@ -103,6 +113,8 @@ const DEFAULT_WIZARD: WizardState = {
   budget: "20",
   startDate: new Date().toISOString().slice(0, 10),
   endDate: "",
+  creativeMode: "ai",
+  selectedMenuItemId: "",
   imageUrl: "",
   primaryText: "",
   headline: "",
@@ -120,6 +132,8 @@ function CampaignsPage() {
   const searchLocations = useServerFn(searchMetaLocations);
   const syncInsights = useServerFn(syncMetaInsights);
   const updateStatus = useServerFn(updateMetaCampaignStatus);
+  const fetchMenuItems = useServerFn(getMenuItemsForAd);
+  const generateCreative = useServerFn(generateAdCreative);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
@@ -154,6 +168,12 @@ function CampaignsPage() {
   const { data: campaigns } = useQuery({
     queryKey: ["campaigns", restaurant?.id],
     queryFn: () => fetchCampaigns({ data: { restaurantId: restaurant!.id } }),
+    enabled: !!restaurant,
+  });
+
+  const { data: menuItems } = useQuery({
+    queryKey: ["menu-items-for-ad", restaurant?.id],
+    queryFn: () => fetchMenuItems({ data: { restaurantId: restaurant!.id } }),
     enabled: !!restaurant,
   });
 
@@ -197,6 +217,7 @@ function CampaignsPage() {
   });
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const statusMutation = useMutation({
     mutationFn: ({ campaignId, status }: { campaignId: string; status: "ACTIVE" | "PAUSED" }) =>
@@ -209,6 +230,42 @@ function CampaignsPage() {
     onError: (e: any) => toast.error(e.message),
     onSettled: () => setTogglingId(null),
   });
+
+  const generateMutation = useMutation({
+    mutationFn: (menuItemId: string) =>
+      generateCreative({ data: { restaurantId: restaurant!.id, menuItemId } }),
+    onSuccess: (res: any) => {
+      setWizard(w => ({
+        ...w,
+        imageUrl: res.imageUrl,
+        primaryText: res.primaryText,
+        headline: res.headline,
+      }));
+      toast.success("Criativo gerado com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${restaurant!.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("ad-images")
+        .upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage
+        .from("ad-images")
+        .getPublicUrl(path);
+      setWizard(w => ({ ...w, imageUrl: publicUrl }));
+      toast.success("Imagem enviada!");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const syncMutation = useMutation({
     mutationFn: () => syncInsights({ data: { restaurantId: restaurant!.id } }),
@@ -959,52 +1016,199 @@ function CampaignsPage() {
               {/* Step 4 — Criativo */}
               {wizardStep === 4 && (
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Configure o visual e o texto do seu anúncio.
-                  </p>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">URL da Imagem</label>
-                    <input
-                      className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                      value={wizard.imageUrl}
-                      onChange={e => setWizard(w => ({ ...w, imageUrl: e.target.value }))}
-                      placeholder="https://suaimagem.com/foto.jpg"
-                    />
-                    <p className="text-xs text-muted-foreground">Use uma URL pública. Tamanho recomendado: 1080×1080px.</p>
+                  {/* Mode tabs */}
+                  <div className="flex gap-1 bg-muted rounded-lg p-1">
+                    {([
+                      ["ai", Sparkles, "Gerar com IA"],
+                      ["upload", Upload, "Upload"],
+                      ["url", Link, "URL"],
+                    ] as const).map(([mode, Icon, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setWizard(w => ({ ...w, creativeMode: mode }))}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          wizard.creativeMode === mode
+                            ? "bg-background shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Icon size={12} /> {label}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Texto Principal</label>
-                    <textarea
-                      className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[90px] resize-none"
-                      value={wizard.primaryText}
-                      onChange={e => setWizard(w => ({ ...w, primaryText: e.target.value }))}
-                      placeholder="O melhor hambúrguer da cidade na sua porta. Peça agora!"
-                      maxLength={125}
-                    />
-                    <div className={`text-[10px] text-right ${wizard.primaryText.length >= 115 ? "text-destructive" : "text-muted-foreground"}`}>
-                      {wizard.primaryText.length}/125
+                  {/* AI mode */}
+                  {wizard.creativeMode === "ai" && (
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Escolha o prato para anunciar</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                          {!menuItems || menuItems.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-4 text-center">
+                              Nenhum item ativo no cardápio.
+                            </p>
+                          ) : (
+                            menuItems.map(item => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setWizard(w => ({ ...w, selectedMenuItemId: item.id }))}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
+                                  wizard.selectedMenuItemId === item.id
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border hover:border-muted-foreground/50 hover:bg-accent/40"
+                                }`}
+                              >
+                                {item.photo_url ? (
+                                  <img
+                                    src={item.photo_url}
+                                    alt={item.name}
+                                    className="w-12 h-12 rounded-md object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <ImageIcon size={16} className="text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm truncate">{item.name}</p>
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                                  )}
+                                  <p className="text-xs font-semibold text-primary mt-0.5">
+                                    R$ {Number(item.price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  </p>
+                                </div>
+                                {wizard.selectedMenuItemId === item.id && (
+                                  <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                  </div>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => wizard.selectedMenuItemId && generateMutation.mutate(wizard.selectedMenuItemId)}
+                        disabled={!wizard.selectedMenuItemId || generateMutation.isPending}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                      >
+                        <Sparkles size={15} className={generateMutation.isPending ? "animate-pulse" : ""} />
+                        {generateMutation.isPending ? "Gerando com IA..." : "Gerar anúncio com IA"}
+                      </button>
+
+                      {generateMutation.isPending && (
+                        <p className="text-xs text-center text-muted-foreground animate-pulse">
+                          Criando imagem e texto... pode levar ~20 segundos
+                        </p>
+                      )}
+
+                      {wizard.imageUrl && !generateMutation.isPending && (
+                        <div className="border rounded-lg overflow-hidden">
+                          <img src={wizard.imageUrl} alt="Preview" className="w-full aspect-square object-cover" />
+                          <p className="text-[10px] text-center text-muted-foreground py-1.5">
+                            Pré-visualização gerada pela IA
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Título do Anúncio</label>
-                    <input
-                      className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                      value={wizard.headline}
-                      onChange={e => setWizard(w => ({ ...w, headline: e.target.value }))}
-                      placeholder="Peça agora com frete grátis!"
-                      maxLength={40}
-                    />
-                    <div className={`text-[10px] text-right ${wizard.headline.length >= 36 ? "text-destructive" : "text-muted-foreground"}`}>
-                      {wizard.headline.length}/40
+                  {/* Upload mode */}
+                  {wizard.creativeMode === "upload" && (
+                    <div className="space-y-3">
+                      <label
+                        className={`flex flex-col items-center justify-center gap-3 w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
+                          uploading ? "opacity-50 pointer-events-none" : "hover:border-primary hover:bg-accent/30"
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                        />
+                        {uploading ? (
+                          <RefreshCw size={24} className="animate-spin text-primary" />
+                        ) : (
+                          <Upload size={24} className="text-muted-foreground" />
+                        )}
+                        <div className="text-center">
+                          <p className="text-sm font-medium">
+                            {uploading ? "Enviando..." : "Clique para selecionar imagem"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">JPG, PNG ou WEBP. Recomendado: 1080×1080px</p>
+                        </div>
+                      </label>
+
+                      {wizard.imageUrl && wizard.creativeMode === "upload" && (
+                        <div className="border rounded-lg overflow-hidden">
+                          <img src={wizard.imageUrl} alt="Preview" className="w-full aspect-square object-cover" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* URL mode */}
+                  {wizard.creativeMode === "url" && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">URL da Imagem</label>
+                      <input
+                        className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                        value={wizard.imageUrl}
+                        onChange={e => setWizard(w => ({ ...w, imageUrl: e.target.value }))}
+                        placeholder="https://suaimagem.com/foto.jpg"
+                      />
+                      <p className="text-xs text-muted-foreground">Use uma URL pública. Recomendado: 1080×1080px.</p>
+                      {wizard.imageUrl && (
+                        <img
+                          src={wizard.imageUrl}
+                          alt="Preview"
+                          className="w-full aspect-square object-cover rounded-lg border mt-2"
+                          onError={e => (e.currentTarget.style.display = "none")}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Text fields — always visible */}
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Texto Principal</label>
+                      <textarea
+                        className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[80px] resize-none"
+                        value={wizard.primaryText}
+                        onChange={e => setWizard(w => ({ ...w, primaryText: e.target.value }))}
+                        placeholder="O melhor hambúrguer da cidade na sua porta. Peça agora! 🍔"
+                        maxLength={125}
+                      />
+                      <div className={`text-[10px] text-right ${wizard.primaryText.length >= 115 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {wizard.primaryText.length}/125
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Título do Anúncio</label>
+                      <input
+                        className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                        value={wizard.headline}
+                        onChange={e => setWizard(w => ({ ...w, headline: e.target.value }))}
+                        placeholder="Peça agora com frete grátis!"
+                        maxLength={40}
+                      />
+                      <div className={`text-[10px] text-right ${wizard.headline.length >= 36 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {wizard.headline.length}/40
+                      </div>
                     </div>
                   </div>
 
                   <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
                     <p className="font-semibold flex items-center gap-1.5">
-                      <ExternalLink size={11} /> Link de destino (gerado automaticamente):
+                      <ExternalLink size={11} /> Link de destino (automático):
                     </p>
                     <code className="break-all text-blue-600 dark:text-blue-400 text-[11px]">
                       {restaurant?.slug
