@@ -1,13 +1,12 @@
+import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "@tanstack/react-router";
+import { FogattoLogo } from "@/components/FogattoLogo";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
-    meta: [
-      { title: "Entrar — Fogatto" },
-    ],
+    meta: [{ title: "Entrar — Fogatto" }],
   }),
   component: AuthPage,
 });
@@ -28,36 +27,31 @@ function AuthPage() {
         const slug = restaurantName
           .toLowerCase()
           .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[̀-ͯ]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({ 
-          email, 
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
           password,
           options: {
             data: {
               restaurant_name: restaurantName,
-              restaurant_slug: slug
-            }
-          }
+              restaurant_slug: slug,
+            },
+          },
         });
-        
+
         if (authError) throw authError;
 
         if (authData.user) {
-          // If auto-confirm is enabled, we might already have a session
-          // But usually we need to wait for email confirmation or it might auto-login in some configs
           const { error: dbError } = await supabase.from("restaurants").insert({
             owner_id: authData.user.id,
             name: restaurantName,
             slug: slug,
-            whatsapp_number: "00000000000" // Placeholder to be updated in onboarding
+            whatsapp_number: "00000000000",
           });
-          
-          if (dbError) {
-            console.error("Error creating restaurant manually:", dbError);
-          }
+          if (dbError) console.error("Error creating restaurant:", dbError);
         }
 
         alert("Conta criada! Verifique seu email para confirmar e acessar seu painel.");
@@ -74,64 +68,150 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 rounded-xl border bg-card p-8 shadow-lg">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight"> Fogatto</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+    <div
+      className="flex min-h-screen items-center justify-center p-4"
+      style={{
+        background:
+          "radial-gradient(58% 48% at 50% 40%, oklch(0.617 0.196 38.5 / 0.18), transparent 68%), oklch(0.072 0.008 55)",
+      }}
+    >
+      {/* Card */}
+      <div
+        className="w-full max-w-sm"
+        style={{
+          background: "oklch(0.12 0.012 48)",
+          borderRadius: 20,
+          boxShadow: "0 0 0 1px oklch(0.617 0.196 38.5 / 0.18), 0 32px 80px oklch(0 0 0 / 0.6)",
+          padding: "40px 36px",
+        }}
+      >
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <FogattoLogo variant="stacked" size="lg" />
+          <p
+            style={{
+              fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+              fontSize: 14,
+              color: "oklch(0.642 0.021 77.8)",
+              marginTop: 4,
+            }}
+          >
             {mode === "login" ? "Entre na sua conta" : "Crie sua conta agora"}
           </p>
         </div>
-        <form onSubmit={handleAuth} className="space-y-4">
+
+        <form onSubmit={handleAuth} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {mode === "signup" && (
-            <div>
-              <label className="block text-sm font-medium">Nome do Restaurante</label>
+            <Field label="Nome do restaurante">
               <input
                 type="text"
                 required
                 placeholder="Ex: Pizzaria do Vale"
-                className="mt-1 w-full rounded-md border bg-background px-3 py-2"
                 value={restaurantName}
                 onChange={(e) => setRestaurantName(e.target.value)}
               />
-            </div>
+            </Field>
           )}
-          <div>
-            <label className="block text-sm font-medium">Email</label>
+          <Field label="Email">
             <input
               type="email"
               required
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2"
+              placeholder="voce@restaurante.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Senha</label>
+          </Field>
+          <Field label="Senha">
             <input
               type="password"
               required
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-          </div>
+          </Field>
+
           <button
+            type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-primary py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{
+              marginTop: 8,
+              padding: "12px 0",
+              borderRadius: 12,
+              background: loading
+                ? "oklch(0.617 0.196 38.5 / 0.5)"
+                : "oklch(0.617 0.196 38.5)",
+              color: "oklch(0.072 0.008 55)",
+              fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+              fontWeight: 600,
+              fontSize: 15,
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              transition: "all 140ms ease",
+              width: "100%",
+            }}
           >
             {loading ? "Processando..." : mode === "login" ? "Entrar" : "Cadastrar"}
           </button>
         </form>
-        <div className="text-center">
+
+        <div style={{ textAlign: "center", marginTop: 20 }}>
           <button
             onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            className="text-sm text-primary hover:underline"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+              fontSize: 13,
+              color: "oklch(0.617 0.196 38.5)",
+            }}
           >
-            {mode === "login" ? "Não tem uma conta? Cadastre-se" : "Já tem uma conta? Entre"}
+            {mode === "login"
+              ? "Não tem uma conta? Cadastre-se"
+              : "Já tem uma conta? Entre"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactElement<React.InputHTMLAttributes<HTMLInputElement>>;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label
+        style={{
+          fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "oklch(0.792 0.017 78.2)",
+          letterSpacing: "0.02em",
+        }}
+      >
+        {label}
+      </label>
+      {React.cloneElement(children, {
+        style: {
+          width: "100%",
+          padding: "10px 14px",
+          borderRadius: 10,
+          background: "oklch(0.148 0.016 47)",
+          border: "1px solid oklch(0.617 0.196 38.5 / 0.2)",
+          color: "oklch(0.963 0.009 88.3)",
+          fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+          fontSize: 14,
+          outline: "none",
+          boxSizing: "border-box",
+        } as React.CSSProperties,
+      })}
+    </div>
+  );
+}
+

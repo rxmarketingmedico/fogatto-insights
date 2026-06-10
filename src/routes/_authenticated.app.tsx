@@ -1,7 +1,8 @@
-import { createFileRoute, Outlet, Link, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut } from "lucide-react";
+import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { FogattoLogo } from "@/components/FogattoLogo";
 
 export const Route = createFileRoute("/_authenticated/app")({
   component: AppLayout,
@@ -19,55 +20,113 @@ function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen" style={{ background: "var(--color-ink-1000, #0C0A08)", color: "var(--color-bone, #F7F2EA)" }}>
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-card hidden md:flex flex-col">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-bold tracking-tight">Fogatto</h2>
+      <aside
+        className="w-60 hidden md:flex flex-col"
+        style={{
+          background: "var(--color-ink-900, #14100D)",
+          borderRight: "1px solid oklch(0.617 0.196 38.5 / 0.14)",
+        }}
+      >
+        {/* Logo */}
+        <div className="p-6" style={{ borderBottom: "1px solid oklch(0.617 0.196 38.5 / 0.14)" }}>
+          <FogattoLogo size="md" />
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <NavItem to="/app" icon={<LayoutDashboard size={20} />} label="Visão Geral" />
-          <NavItem to="/app/menu" icon={<Utensils size={20} />} label="Cardápio" />
-          <NavItem to="/app/campaigns" icon={<Megaphone size={20} />} label="Campanhas" />
-          <NavItem to="/app/customers" icon={<Users size={20} />} label="Clientes" />
-          <NavItem to="/app/settings" icon={<Settings size={20} />} label="Configurações" />
+
+        {/* Nav */}
+        <nav className="flex-1 p-3 flex flex-col gap-1">
+          <NavItem to="/app" icon={<LayoutDashboard size={18} />} label="Visão Geral" exact />
+          <NavItem to="/app/menu" icon={<Utensils size={18} />} label="Cardápio" />
+          <NavItem to="/app/campaigns" icon={<Megaphone size={18} />} label="Campanhas" />
+          <NavItem to="/app/orders" icon={<ShoppingBag size={18} />} label="Pedidos" />
+          <NavItem to="/app/customers" icon={<Users size={18} />} label="Clientes" />
+          <NavItem to="/app/settings" icon={<Settings size={18} />} label="Configurações" />
         </nav>
-        <div className="p-4 border-t">
-          <button 
+
+        {/* Sign out */}
+        <div className="p-3" style={{ borderTop: "1px solid oklch(0.617 0.196 38.5 / 0.14)" }}>
+          <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 w-full p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors"
+            style={{
+              color: "var(--color-bone-3, #9D9182)",
+              fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+              fontSize: 14,
+              fontWeight: 500,
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.194 0.02 47)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-bone, #F7F2EA)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-bone-3, #9D9182)";
+            }}
           >
-            <LogOut size={20} />
-            <span className="font-medium">Sair</span>
+            <LogOut size={18} />
+            <span>Sair</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-         {/* Mobile Header */}
-         <header className="md:hidden border-b p-4 flex justify-between items-center bg-card">
-            <h2 className="text-xl font-bold">Fogatto</h2>
-            {/* Mobile menu trigger could go here */}
-         </header>
-         
-         <main className="flex-1 overflow-y-auto">
-            <Outlet />
-         </main>
+        {/* Mobile header */}
+        <header
+          className="md:hidden flex items-center justify-between px-4 py-3"
+          style={{
+            background: "var(--color-ink-900, #14100D)",
+            borderBottom: "1px solid oklch(0.617 0.196 38.5 / 0.14)",
+          }}
+        >
+          <FogattoLogo size="sm" />
+          {/* Mobile menu could be added here */}
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
       </div>
     </div>
   );
 }
 
-function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function NavItem({
+  to,
+  icon,
+  label,
+  exact,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  exact?: boolean;
+}) {
+  const { location } = useRouterState();
+  const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
+
   return (
-    <Link 
-      to={to} 
-      activeProps={{ className: "bg-accent text-foreground" }}
-      className="flex items-center gap-3 p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+    <Link
+      to={to}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px 12px",
+        borderRadius: 10,
+        fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+        fontSize: 14,
+        fontWeight: isActive ? 600 : 500,
+        textDecoration: "none",
+        transition: "all 140ms ease",
+        background: isActive ? "oklch(0.617 0.196 38.5 / 0.12)" : "transparent",
+        color: isActive ? "oklch(0.617 0.196 38.5)" : "oklch(0.642 0.021 77.8)",
+        boxShadow: isActive ? "inset 0 0 0 1px oklch(0.617 0.196 38.5 / 0.2)" : "none",
+      }}
     >
       {icon}
-      <span className="font-medium">{label}</span>
+      <span>{label}</span>
     </Link>
   );
 }
