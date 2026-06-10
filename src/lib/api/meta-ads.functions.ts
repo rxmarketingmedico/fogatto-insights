@@ -206,7 +206,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
         name: campaign.name,
         objective: "OUTCOME_TRAFFIC",
         status: "PAUSED",
-        special_ad_categories: "[]",
+        special_ad_categories: [],
         access_token: accessToken,
       }),
     });
@@ -244,7 +244,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
         object_story_spec: {
           page_id: pageId,
           link_data: {
-            image_hash: imageHash,
+            image_hash: hash,
             link: data.adData.destinationUrl,
             message: data.adData.primaryText,
             name: data.adData.headline,
