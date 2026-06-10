@@ -67,13 +67,18 @@ function SettingsPage() {
       const popup = window.open(url, "meta_auth", "width=600,height=700");
       
       const timer = setInterval(() => {
-        const result = localStorage.getItem("meta_callback_result");
-        if (result) {
+        const resultStr = localStorage.getItem("meta_callback_result");
+        if (resultStr) {
           clearInterval(timer);
           localStorage.removeItem("meta_callback_result");
-          setMetaSelection(JSON.parse(result));
+          const result = JSON.parse(resultStr);
+          if (result.error) {
+            toast.error(`Erro na conexão: ${result.error}`);
+          } else {
+            setMetaSelection(result);
+          }
         }
-        if (popup?.closed && !localStorage.getItem("meta_callback_result")) {
+        if (popup?.closed) {
           clearInterval(timer);
         }
       }, 500);
