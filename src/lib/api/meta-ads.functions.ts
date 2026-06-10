@@ -29,9 +29,9 @@ export const getMetaAuthUrl = createServerFn({ method: "GET" })
 
 export const handleMetaCallback = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: any) => 
-    z.object({ 
-      code: z.string(), 
+  .inputValidator((data: any) =>
+    z.object({
+      code: z.string(),
       state: z.string(),
     }).parse(data)
   )
@@ -50,7 +50,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
       redirect_uri: redirectUri,
       code: data.code,
     }));
-    
+
     const tokenData = await tokenResponse.json();
     if (tokenData.error) throw new Error(tokenData.error.message);
 
@@ -61,7 +61,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
       client_secret: clientSecret,
       fb_exchange_token: tokenData.access_token,
     }));
-    
+
     const longLivedData = await longLivedResponse.json();
     if (longLivedData.error) throw new Error(longLivedData.error.message);
     const accessToken = longLivedData.access_token;
@@ -99,7 +99,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
 
 export const connectMetaAds = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: any) => 
+  .inputValidator((data: any) =>
     z.object({
       restaurantId: z.string(),
       adAccountId: z.string(),
@@ -108,7 +108,7 @@ export const connectMetaAds = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    
+
     const { error } = await supabase
       .from("restaurants")
       .update({
@@ -126,7 +126,7 @@ export const disconnectMetaAds = createServerFn({ method: "POST" })
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    
+
     const { error } = await supabase
       .from("restaurants")
       .update({
@@ -141,9 +141,53 @@ export const disconnectMetaAds = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+export const searchMetaLocations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      restaurantId: z.string(),
+      query: z.string().min(2),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("meta_access_token")
+      .eq("id", data.restaurantId)
+      .single();
+
+    if (!restaurant?.meta_access_token) return [];
+
+    const res = await fetch(`${META_GRAPH_URL}/search?` + new URLSearchParams({
+      type: "adgeolocation",
+      q: data.query,
+      location_types: "city",
+      country_code: "BR",
+      access_token: restaurant.meta_access_token,
+    }));
+    const result = await res.json();
+    if (result.error) return [];
+
+    return (result.data || []).slice(0, 8).map((loc: any) => ({
+      key: String(loc.key),
+      name: loc.name,
+      region: loc.region || "",
+    }));
+  });
+
+const OPTIMIZATION_GOAL: Record<string, string> = {
+  OUTCOME_TRAFFIC: "LINK_CLICKS",
+  OUTCOME_SALES: "LINK_CLICKS",
+  OUTCOME_AWARENESS: "REACH",
+  OUTCOME_ENGAGEMENT: "POST_ENGAGEMENT",
+  OUTCOME_LEADS: "LEAD_GENERATION",
+};
+
 export const publishMetaAd = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: any) => 
+  .inputValidator((data: any) =>
     z.object({
       campaignId: z.string(),
       adData: z.object({
@@ -151,9 +195,16 @@ export const publishMetaAd = createServerFn({ method: "POST" })
         primaryText: z.string().max(125),
         headline: z.string().max(40),
         destinationUrl: z.string(),
-        dailyBudget: z.number().min(5),
+        objective: z.enum(["OUTCOME_TRAFFIC", "OUTCOME_SALES", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT", "OUTCOME_LEADS"]).default("OUTCOME_TRAFFIC"),
+        budgetType: z.enum(["daily", "lifetime"]).default("daily"),
+        budget: z.number().min(5),
         startDate: z.string(),
         endDate: z.string().optional().nullable(),
+        ageMin: z.number().min(13).max(65).default(18),
+        ageMax: z.number().min(13).max(65).default(65),
+        genderIds: z.array(z.number()).optional(),
+        locationKey: z.string().optional(),
+        locationRadius: z.number().default(15),
       })
     }).parse(data)
   )
@@ -178,9 +229,6 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     }
 
     // 2. Upload Image
-    // Note: In a real scenario, we might need to fetch the image from imageUrl and convert to base64 if it's not already.
-    // Assuming imageUrl is a public URL for now, but Meta Ads API preferred base64 or bytes for /adimages.
-    // For simplicity, we'll try to fetch the image first.
     const imgRes = await fetch(data.adData.imageUrl);
     const imgBlob = await imgRes.blob();
     const arrayBuffer = await imgBlob.arrayBuffer();
@@ -196,8 +244,8 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     });
     const adImageData = await adImageRes.json() as any;
     if (adImageData.error) throw new Error(`Erro AdImage: ${adImageData.error.message}`);
-    const imageHash = Object.values(adImageData.images)[0] as any;
-    const hash = imageHash.hash;
+    const imageEntry = Object.values(adImageData.images)[0] as any;
+    const hash = imageEntry.hash;
 
     // 3. Create Campaign
     const metaCampaignRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/campaigns`, {
@@ -205,7 +253,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: campaign.name,
-        objective: "OUTCOME_TRAFFIC",
+        objective: data.adData.objective,
         status: "PAUSED",
         special_ad_categories: [],
         access_token: accessToken,
@@ -215,28 +263,53 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     if (metaCampaignData.error) throw new Error(`Erro Campaign: ${metaCampaignData.error.message}`);
     const metaCampaignId = metaCampaignData.id;
 
-    // 4. Create Ad Set
+    // 4. Build targeting
+    const targeting: any = {
+      age_min: data.adData.ageMin ?? 18,
+      age_max: data.adData.ageMax ?? 65,
+      geo_locations: data.adData.locationKey
+        ? {
+            cities: [{
+              key: data.adData.locationKey,
+              radius: data.adData.locationRadius ?? 15,
+              distance_unit: "kilometer",
+            }],
+          }
+        : { countries: ["BR"] },
+    };
+    if (data.adData.genderIds && data.adData.genderIds.length > 0) {
+      targeting.genders = data.adData.genderIds;
+    }
+
+    // 5. Create Ad Set
+    const optimizationGoal = OPTIMIZATION_GOAL[data.adData.objective] ?? "LINK_CLICKS";
+    const budgetField = data.adData.budgetType === "lifetime" ? "lifetime_budget" : "daily_budget";
+
+    const adSetBody: any = {
+      name: `${campaign.name} - Conjunto`,
+      campaign_id: metaCampaignId,
+      [budgetField]: Math.round(data.adData.budget * 100),
+      billing_event: "IMPRESSIONS",
+      optimization_goal: optimizationGoal,
+      targeting,
+      start_time: Math.floor(new Date(data.adData.startDate + "T00:00:00").getTime() / 1000),
+      status: "PAUSED",
+      access_token: accessToken,
+    };
+    if (data.adData.endDate) {
+      adSetBody.end_time = Math.floor(new Date(data.adData.endDate + "T23:59:59").getTime() / 1000);
+    }
+
     const adSetRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/adsets`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: `${campaign.name} - Conjunto`,
-        campaign_id: metaCampaignId,
-        daily_budget: Math.round(data.adData.dailyBudget * 100),
-        billing_event: "IMPRESSIONS",
-        optimization_goal: "LINK_CLICKS",
-        targeting: { geo_locations: { countries: ["BR"] } },
-        start_time: data.adData.startDate,
-        end_time: data.adData.endDate || undefined,
-        status: "PAUSED",
-        access_token: accessToken,
-      }),
+      body: JSON.stringify(adSetBody),
     });
     const adSetData = await adSetRes.json();
     if (adSetData.error) throw new Error(`Erro AdSet: ${adSetData.error.message}`);
     const metaAdSetId = adSetData.id;
 
-    // 5. Create Ad Creative
+    // 6. Create Ad Creative
     const creativeRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/adcreatives`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -258,7 +331,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     if (creativeData.error) throw new Error(`Erro Creative: ${creativeData.error.message}`);
     const creativeId = creativeData.id;
 
-    // 6. Create Ad
+    // 7. Create Ad
     const adRes = await fetch(`${META_GRAPH_URL}/${adAccountId}/ads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -274,7 +347,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
     if (adDataRes.error) throw new Error(`Erro Ad: ${adDataRes.error.message}`);
     const metaAdId = adDataRes.id;
 
-    // 7. Update Campaign in Database
+    // 8. Update Campaign in Database
     const { error: finalUpdateError } = await supabase
       .from("campaigns")
       .update({

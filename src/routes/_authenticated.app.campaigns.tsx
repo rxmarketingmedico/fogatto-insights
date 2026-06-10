@@ -10,9 +10,24 @@ import {
   deleteAdSpend,
   getCampaignRoas,
 } from "@/lib/api/dashboard.functions";
-import { publishMetaAd } from "@/lib/api/meta-ads.functions";
-import { useState } from "react";
-import { Plus, Trash2, TrendingUp, DollarSign, Facebook, ExternalLink, Calendar } from "lucide-react";
+import { publishMetaAd, searchMetaLocations } from "@/lib/api/meta-ads.functions";
+import { useState, useRef } from "react";
+import {
+  Plus,
+  Trash2,
+  DollarSign,
+  Facebook,
+  ExternalLink,
+  Calendar,
+  Eye,
+  ShoppingCart,
+  Users,
+  MapPin,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/campaigns")({
@@ -25,6 +40,69 @@ const PLATFORM_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
+const OBJECTIVES = [
+  {
+    id: "OUTCOME_TRAFFIC" as const,
+    icon: Users,
+    label: "Atrair clientes",
+    desc: "Leva pessoas ao seu cardápio online",
+  },
+  {
+    id: "OUTCOME_SALES" as const,
+    icon: ShoppingCart,
+    label: "Gerar pedidos",
+    desc: "Otimizado para conversão direta",
+  },
+  {
+    id: "OUTCOME_AWARENESS" as const,
+    icon: Eye,
+    label: "Aumentar visibilidade",
+    desc: "Maximiza o alcance da sua marca",
+  },
+];
+
+const STEP_LABELS = ["Objetivo", "Público", "Orçamento", "Criativo"];
+
+type Objective = "OUTCOME_TRAFFIC" | "OUTCOME_SALES" | "OUTCOME_AWARENESS";
+type BudgetType = "daily" | "lifetime";
+type Gender = "all" | "male" | "female";
+
+interface WizardState {
+  objective: Objective;
+  ageMin: number;
+  ageMax: number;
+  gender: Gender;
+  locationSearch: string;
+  locationKey: string;
+  locationName: string;
+  locationRadius: number;
+  budgetType: BudgetType;
+  budget: string;
+  startDate: string;
+  endDate: string;
+  imageUrl: string;
+  primaryText: string;
+  headline: string;
+}
+
+const DEFAULT_WIZARD: WizardState = {
+  objective: "OUTCOME_TRAFFIC",
+  ageMin: 18,
+  ageMax: 65,
+  gender: "all",
+  locationSearch: "",
+  locationKey: "",
+  locationName: "",
+  locationRadius: 15,
+  budgetType: "daily",
+  budget: "20",
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: "",
+  imageUrl: "",
+  primaryText: "",
+  headline: "",
+};
+
 function CampaignsPage() {
   const fetchRestaurant = useServerFn(getRestaurant);
   const fetchCampaigns = useServerFn(getCampaigns);
@@ -34,24 +112,31 @@ function CampaignsPage() {
   const saveSpend = useServerFn(upsertAdSpend);
   const removeSpend = useServerFn(deleteAdSpend);
   const publishToMeta = useServerFn(publishMetaAd);
+  const searchLocations = useServerFn(searchMetaLocations);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [showSpendForm, setShowSpendForm] = useState(false);
   const [showMetaPublishModal, setShowMetaPublishModal] = useState<any>(null);
-  const [metaAdForm, setMetaAdForm] = useState({
-    imageUrl: "",
-    primaryText: "",
-    headline: "",
-    dailyBudget: "10",
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: "",
-  });
-  const [campaignForm, setCampaignForm] = useState({ name: "", platform: "meta", utm_campaign: "" });
-  const [spendForm, setSpendForm] = useState({ campaign_id: "", date: new Date().toISOString().slice(0, 10), amount: "" });
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizard, setWizard] = useState<WizardState>(DEFAULT_WIZARD);
+  const [locationResults, setLocationResults] = useState<Array<{ key: string; name: string; region: string }>>([]);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const locationDebounce = useRef<ReturnType<typeof setTimeout>>();
 
-  const { data: restaurant } = useQuery({ queryKey: ["restaurant"], queryFn: () => fetchRestaurant() });
+  const [campaignForm, setCampaignForm] = useState({ name: "", platform: "meta", utm_campaign: "" });
+  const [spendForm, setSpendForm] = useState({
+    campaign_id: "",
+    date: new Date().toISOString().slice(0, 10),
+    amount: "",
+  });
+
+  const { data: restaurant } = useQuery({
+    queryKey: ["restaurant"],
+    queryFn: () => fetchRestaurant(),
+  });
 
   const { data: roas, isLoading: loadingRoas } = useQuery({
     queryKey: ["campaign-roas", restaurant?.id],
@@ -105,11 +190,11 @@ function CampaignsPage() {
   });
 
   const metaMutation = useMutation({
-    mutationFn: (data: any) => publishToMeta({ data }),
+    mutationFn: (payload: any) => publishToMeta({ data: payload }),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
-      setShowMetaPublishModal(null);
-      toast.success("Anúncio publicado no Meta! Revise no Gerenciador.", {
+      closeWizard();
+      toast.success("Anúncio enviado ao Meta! Revise no Gerenciador antes de ativar.", {
         action: {
           label: "Ver no Meta",
           onClick: () => window.open(res.adsManagerUrl, "_blank"),
@@ -118,6 +203,77 @@ function CampaignsPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const openWizard = (campaign: any) => {
+    setShowMetaPublishModal(campaign);
+    setWizardStep(1);
+    setWizard({ ...DEFAULT_WIZARD, headline: campaign.name.slice(0, 40) });
+    setLocationResults([]);
+    setShowLocationDropdown(false);
+  };
+
+  const closeWizard = () => {
+    setShowMetaPublishModal(null);
+    setWizardStep(1);
+  };
+
+  const handleLocationInput = (value: string) => {
+    setWizard(w => ({ ...w, locationSearch: value, locationKey: "", locationName: "" }));
+    setLocationResults([]);
+    clearTimeout(locationDebounce.current);
+    if (value.length < 2) { setShowLocationDropdown(false); return; }
+    locationDebounce.current = setTimeout(async () => {
+      setSearchingLocation(true);
+      try {
+        const results = await searchLocations({ data: { restaurantId: restaurant!.id, query: value } });
+        setLocationResults(results as any[]);
+        setShowLocationDropdown(true);
+      } catch { /* ignore */ }
+      finally { setSearchingLocation(false); }
+    }, 500);
+  };
+
+  const selectLocation = (loc: { key: string; name: string; region: string }) => {
+    setWizard(w => ({ ...w, locationKey: loc.key, locationName: loc.name, locationSearch: `${loc.name}, ${loc.region}` }));
+    setShowLocationDropdown(false);
+  };
+
+  const canAdvance = () => {
+    if (wizardStep === 3) {
+      if (!wizard.budget || parseFloat(wizard.budget) < 5) return false;
+      if (!wizard.startDate) return false;
+      if (wizard.budgetType === "lifetime" && !wizard.endDate) return false;
+    }
+    if (wizardStep === 4) {
+      if (!wizard.imageUrl || !wizard.primaryText || !wizard.headline) return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = () => {
+    if (!canAdvance()) return;
+    const destinationUrl = `${window.location.origin}/r/${restaurant!.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`;
+    const genderIds = wizard.gender === "male" ? [1] : wizard.gender === "female" ? [2] : [];
+    metaMutation.mutate({
+      campaignId: showMetaPublishModal.id,
+      adData: {
+        imageUrl: wizard.imageUrl,
+        primaryText: wizard.primaryText,
+        headline: wizard.headline,
+        destinationUrl,
+        objective: wizard.objective,
+        budgetType: wizard.budgetType,
+        budget: parseFloat(wizard.budget),
+        startDate: wizard.startDate,
+        endDate: wizard.endDate || null,
+        ageMin: wizard.ageMin,
+        ageMax: wizard.ageMax,
+        genderIds,
+        locationKey: wizard.locationKey || undefined,
+        locationRadius: wizard.locationRadius,
+      },
+    });
+  };
 
   const roasColor = (v: number | null) => {
     if (v === null) return "text-muted-foreground";
@@ -171,17 +327,17 @@ function CampaignsPage() {
                 <th className="px-5 py-3 text-left">Plataforma</th>
                 <th className="px-5 py-3 text-right">Gasto</th>
                 <th className="px-5 py-3 text-right">Receita atribuída</th>
-                 <th className="px-5 py-3 text-right">ROAS</th>
-                 <th className="px-5 py-3"></th>
-               </tr>
+                <th className="px-5 py-3 text-right">ROAS</th>
+                <th className="px-5 py-3"></th>
+              </tr>
             </thead>
             <tbody className="divide-y">
               {loadingRoas && (
-                <tr><td colSpan={5} className="px-5 py-6 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={6} className="px-5 py-6 text-center text-muted-foreground">Carregando...</td></tr>
               )}
               {!loadingRoas && roas?.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
                     Nenhuma campanha ainda. Crie uma e lance o gasto para ver o ROAS.
                   </td>
                 </tr>
@@ -199,36 +355,30 @@ function CampaignsPage() {
                   <td className="px-5 py-3 text-right tabular-nums text-primary font-semibold">
                     {c.revenue > 0 ? `R$ ${c.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : <span className="font-normal text-muted-foreground">—</span>}
                   </td>
-                   <td className={`px-5 py-3 text-right tabular-nums ${roasColor(c.roas)}`}>
-                     {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
-                   </td>
-                   <td className="px-5 py-3 text-right">
-                     {(c as any).meta_ad_id ? (
-                       <div className="flex items-center justify-end gap-2 text-green-600">
-                         <span className="text-[10px] font-bold uppercase border border-green-600 px-1 rounded bg-green-50">
-                           {(c as any).meta_status || "Publicado"}
-                         </span>
-                         <Facebook size={14} />
-                       </div>
-                     ) : (
-                       restaurant?.meta_access_token && (
-                         <button
-                           onClick={() => {
-                             setShowMetaPublishModal(c);
-                             setMetaAdForm(prev => ({
-                               ...prev,
-                               headline: c.name.slice(0, 40),
-                             }));
-                           }}
-                           className="flex items-center gap-1.5 ml-auto text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
-                         >
-                           <Facebook size={12} />
-                           Publicar no Meta
-                         </button>
-                       )
-                     )}
-                   </td>
-                 </tr>
+                  <td className={`px-5 py-3 text-right tabular-nums ${roasColor(c.roas)}`}>
+                    {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {(c as any).meta_ad_id ? (
+                      <div className="flex items-center justify-end gap-2 text-green-600">
+                        <span className="text-[10px] font-bold uppercase border border-green-600 px-1 rounded bg-green-50">
+                          {(c as any).meta_status || "Publicado"}
+                        </span>
+                        <Facebook size={14} />
+                      </div>
+                    ) : (
+                      restaurant?.meta_access_token && (
+                        <button
+                          onClick={() => openWizard(c)}
+                          className="flex items-center gap-1.5 ml-auto text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+                        >
+                          <Facebook size={12} />
+                          Publicar no Meta
+                        </button>
+                      )
+                    )}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -394,138 +544,410 @@ function CampaignsPage() {
             </div>
           </form>
         </div>
-       )}
+      )}
 
-      {/* Meta Publish Modal */}
+      {/* Meta Publish Wizard */}
       {showMetaPublishModal && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              const destinationUrl = `${window.location.origin}/r/${restaurant!.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`;
-              metaMutation.mutate({
-                campaignId: showMetaPublishModal.id,
-                adData: {
-                  ...metaAdForm,
-                  dailyBudget: parseFloat(metaAdForm.dailyBudget),
-                  destinationUrl
-                }
-              });
-            }}
-            className="bg-card border rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 overflow-y-auto max-h-[90vh]"
-          >
-            <div className="flex items-center gap-2">
-              <Facebook className="text-[#1877F2]" />
-              <h3 className="font-bold text-lg">Publicar Anúncio no Meta</h3>
-            </div>
-            
-            <p className="text-sm text-muted-foreground">
-              A campanha será criada como <strong>PAUSADA</strong> no Gerenciador de Anúncios para sua revisão final.
-            </p>
+          <div className="bg-card border rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[92vh]">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">URL da Imagem</label>
-                  <input
-                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                    value={metaAdForm.imageUrl}
-                    onChange={e => setMetaAdForm({ ...metaAdForm, imageUrl: e.target.value })}
-                    placeholder="https://suaimagem.com/foto.jpg"
-                    required
-                  />
-                  <p className="text-[10px] text-muted-foreground">Use uma URL pública de imagem.</p>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Texto Principal (Legenda)</label>
-                  <textarea
-                    className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[100px]"
-                    value={metaAdForm.primaryText}
-                    onChange={e => setMetaAdForm({ ...metaAdForm, primaryText: e.target.value })}
-                    placeholder="O melhor hambúrguer da cidade na porta da sua casa! Peça agora."
-                    maxLength={125}
-                    required
-                  />
-                  <div className="text-[10px] text-right text-muted-foreground">{metaAdForm.primaryText.length}/125</div>
-                </div>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-6 py-4 border-b shrink-0">
+              <Facebook className="text-[#1877F2] shrink-0" size={20} />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-base leading-tight">Publicar no Meta Ads</p>
+                <p className="text-xs text-muted-foreground">
+                  Passo {wizardStep}/4 — {STEP_LABELS[wizardStep - 1]}
+                </p>
               </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Título do Anúncio</label>
-                  <input
-                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                    value={metaAdForm.headline}
-                    onChange={e => setMetaAdForm({ ...metaAdForm, headline: e.target.value })}
-                    placeholder="Peça pelo Fogatto e ganhe desconto!"
-                    maxLength={40}
-                    required
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4].map(s => (
+                  <div
+                    key={s}
+                    className={`h-1.5 rounded-full transition-all ${
+                      s < wizardStep ? "w-5 bg-[#1877F2]" :
+                      s === wizardStep ? "w-5 bg-[#1877F2]" :
+                      "w-2.5 bg-muted-foreground/30"
+                    }`}
                   />
-                  <div className="text-[10px] text-right text-muted-foreground">{metaAdForm.headline.length}/40</div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Orçamento Diário (R$)</label>
-                  <input
-                    type="number"
-                    min="5"
-                    step="1"
-                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                    value={metaAdForm.dailyBudget}
-                    onChange={e => setMetaAdForm({ ...metaAdForm, dailyBudget: e.target.value })}
-                    required
-                  />
-                  <p className="text-[10px] text-muted-foreground">Mínimo de R$ 5,00.</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium flex items-center gap-1">
-                      <Calendar size={12} /> Início
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full border rounded-md px-2 py-1.5 bg-background text-xs"
-                      value={metaAdForm.startDate}
-                      onChange={e => setMetaAdForm({ ...metaAdForm, startDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium flex items-center gap-1">
-                      <Calendar size={12} /> Fim (Opt)
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full border rounded-md px-2 py-1.5 bg-background text-xs"
-                      value={metaAdForm.endDate}
-                      onChange={e => setMetaAdForm({ ...metaAdForm, endDate: e.target.value })}
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
-
-            <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
-              <p className="font-semibold flex items-center gap-1">
-                <ExternalLink size={12} /> Link de destino (automático):
-              </p>
-              <code className="break-all text-blue-600">
-                {restaurant?.slug ? `${window.location.origin}/r/${restaurant.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}` : "Carregando..."}
-              </code>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowMetaPublishModal(null)} className="px-4 py-2 text-sm rounded-md hover:bg-accent">Cancelar</button>
-              <button 
-                disabled={metaMutation.isPending} 
-                className="px-6 py-2 text-sm bg-[#1877F2] text-white rounded-md hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-              >
-                {metaMutation.isPending ? "Enviando para o Meta..." : "Publicar agora"}
+              <button onClick={closeWizard} className="p-1 rounded hover:bg-accent ml-1">
+                <X size={16} />
               </button>
             </div>
-          </form>
+
+            {/* Step Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+
+              {/* Step 1 — Objetivo */}
+              {wizardStep === 1 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Qual o objetivo principal desta campanha?
+                  </p>
+                  <div className="space-y-3">
+                    {OBJECTIVES.map(obj => {
+                      const Icon = obj.icon;
+                      const selected = wizard.objective === obj.id;
+                      return (
+                        <button
+                          key={obj.id}
+                          type="button"
+                          onClick={() => setWizard(w => ({ ...w, objective: obj.id }))}
+                          className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                            selected
+                              ? "border-[#1877F2] bg-blue-50/50 dark:bg-blue-950/20"
+                              : "border-border hover:border-muted-foreground/50 hover:bg-accent/40"
+                          }`}
+                        >
+                          <div className={`p-2.5 rounded-lg ${selected ? "bg-[#1877F2] text-white" : "bg-muted"}`}>
+                            <Icon size={20} />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{obj.label}</p>
+                            <p className="text-xs text-muted-foreground">{obj.desc}</p>
+                          </div>
+                          {selected && (
+                            <div className="ml-auto w-4 h-4 rounded-full bg-[#1877F2] flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2 — Público */}
+              {wizardStep === 2 && (
+                <div className="space-y-5">
+                  <p className="text-sm text-muted-foreground">
+                    Para quem você quer mostrar este anúncio?
+                  </p>
+
+                  {/* Location search */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <MapPin size={14} /> Cidade (opcional)
+                    </label>
+                    <div className="relative">
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          className="w-full border rounded-md pl-8 pr-3 py-2 bg-background text-sm"
+                          placeholder="Ex: São Paulo, Porto Alegre..."
+                          value={wizard.locationSearch}
+                          onChange={e => handleLocationInput(e.target.value)}
+                          onFocus={() => locationResults.length > 0 && setShowLocationDropdown(true)}
+                        />
+                        {searchingLocation && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        )}
+                      </div>
+                      {showLocationDropdown && locationResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {locationResults.map(loc => (
+                            <button
+                              key={loc.key}
+                              type="button"
+                              onClick={() => selectLocation(loc)}
+                              className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                            >
+                              <span className="font-medium">{loc.name}</span>
+                              {loc.region && <span className="text-muted-foreground ml-1">— {loc.region}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {wizard.locationKey && (
+                      <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/20 border border-blue-200 rounded-md px-3 py-1.5 text-xs">
+                        <span className="text-blue-700 dark:text-blue-300 font-medium">{wizard.locationSearch}</span>
+                        <button
+                          type="button"
+                          onClick={() => setWizard(w => ({ ...w, locationKey: "", locationName: "", locationSearch: "" }))}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                    {!wizard.locationKey && (
+                      <p className="text-xs text-muted-foreground">Sem cidade selecionada, o anúncio alcança todo o Brasil.</p>
+                    )}
+                  </div>
+
+                  {/* Radius (only when city selected) */}
+                  {wizard.locationKey && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Raio ao redor da cidade</label>
+                      <div className="flex gap-2">
+                        {[5, 10, 15, 20, 30].map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setWizard(w => ({ ...w, locationRadius: r }))}
+                            className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                              wizard.locationRadius === r
+                                ? "bg-[#1877F2] text-white border-[#1877F2]"
+                                : "hover:bg-accent border-border"
+                            }`}
+                          >
+                            {r}km
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Age range */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Faixa de idade</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <input
+                          type="number"
+                          min="18"
+                          max={wizard.ageMax}
+                          className="w-full border rounded-md px-3 py-2 bg-background text-sm text-center"
+                          value={wizard.ageMin}
+                          onChange={e => setWizard(w => ({ ...w, ageMin: parseInt(e.target.value) || 18 }))}
+                        />
+                        <p className="text-[10px] text-center text-muted-foreground mt-0.5">Mínimo</p>
+                      </div>
+                      <span className="text-muted-foreground text-sm">até</span>
+                      <div className="flex-1">
+                        <input
+                          type="number"
+                          min={wizard.ageMin}
+                          max="65"
+                          className="w-full border rounded-md px-3 py-2 bg-background text-sm text-center"
+                          value={wizard.ageMax}
+                          onChange={e => setWizard(w => ({ ...w, ageMax: parseInt(e.target.value) || 65 }))}
+                        />
+                        <p className="text-[10px] text-center text-muted-foreground mt-0.5">Máximo</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gender */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Gênero</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([["all", "Todos"], ["male", "Homens"], ["female", "Mulheres"]] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setWizard(w => ({ ...w, gender: val as Gender }))}
+                          className={`py-2 rounded-md text-sm font-medium border transition-colors ${
+                            wizard.gender === val
+                              ? "bg-[#1877F2] text-white border-[#1877F2]"
+                              : "hover:bg-accent border-border"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3 — Orçamento */}
+              {wizardStep === 3 && (
+                <div className="space-y-5">
+                  <p className="text-sm text-muted-foreground">
+                    Quanto você quer investir nesta campanha?
+                  </p>
+
+                  {/* Budget type toggle */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Tipo de orçamento</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([["daily", "Diário", "Renova todo dia"] as const, ["lifetime", "Total da campanha", "Gasta até encerrar"] as const]).map(([val, label, desc]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setWizard(w => ({ ...w, budgetType: val }))}
+                          className={`p-3 rounded-xl border-2 text-left transition-all ${
+                            wizard.budgetType === val
+                              ? "border-[#1877F2] bg-blue-50/50 dark:bg-blue-950/20"
+                              : "border-border hover:border-muted-foreground/50"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">{label}</p>
+                          <p className="text-[11px] text-muted-foreground">{desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Budget amount */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">
+                      {wizard.budgetType === "daily" ? "Orçamento diário (R$)" : "Orçamento total (R$)"}
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                      <input
+                        type="number"
+                        min="5"
+                        step="1"
+                        className="w-full border rounded-md pl-9 pr-3 py-2.5 bg-background text-sm font-medium"
+                        value={wizard.budget}
+                        onChange={e => setWizard(w => ({ ...w, budget: e.target.value }))}
+                        placeholder="20"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Mínimo de R$ 5,00.</p>
+                    {/* Quick values */}
+                    <div className="flex gap-2 pt-1">
+                      {(wizard.budgetType === "daily" ? [10, 20, 30, 50] : [100, 200, 500]).map(v => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setWizard(w => ({ ...w, budget: String(v) }))}
+                          className="px-3 py-1 text-xs rounded-full border hover:bg-accent"
+                        >
+                          R$ {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium flex items-center gap-1">
+                        <Calendar size={13} /> Início
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                        value={wizard.startDate}
+                        onChange={e => setWizard(w => ({ ...w, startDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium flex items-center gap-1">
+                        <Calendar size={13} />
+                        {wizard.budgetType === "lifetime" ? "Fim (obrigatório)" : "Fim (opcional)"}
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                        value={wizard.endDate}
+                        onChange={e => setWizard(w => ({ ...w, endDate: e.target.value }))}
+                        required={wizard.budgetType === "lifetime"}
+                        min={wizard.startDate}
+                      />
+                    </div>
+                  </div>
+                  {wizard.budgetType === "lifetime" && !wizard.endDate && (
+                    <p className="text-xs text-destructive">Data de fim obrigatória para orçamento total.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Step 4 — Criativo */}
+              {wizardStep === 4 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Configure o visual e o texto do seu anúncio.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">URL da Imagem</label>
+                    <input
+                      className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                      value={wizard.imageUrl}
+                      onChange={e => setWizard(w => ({ ...w, imageUrl: e.target.value }))}
+                      placeholder="https://suaimagem.com/foto.jpg"
+                    />
+                    <p className="text-xs text-muted-foreground">Use uma URL pública. Tamanho recomendado: 1080×1080px.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Texto Principal</label>
+                    <textarea
+                      className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[90px] resize-none"
+                      value={wizard.primaryText}
+                      onChange={e => setWizard(w => ({ ...w, primaryText: e.target.value }))}
+                      placeholder="O melhor hambúrguer da cidade na sua porta. Peça agora!"
+                      maxLength={125}
+                    />
+                    <div className={`text-[10px] text-right ${wizard.primaryText.length >= 115 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {wizard.primaryText.length}/125
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Título do Anúncio</label>
+                    <input
+                      className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                      value={wizard.headline}
+                      onChange={e => setWizard(w => ({ ...w, headline: e.target.value }))}
+                      placeholder="Peça agora com frete grátis!"
+                      maxLength={40}
+                    />
+                    <div className={`text-[10px] text-right ${wizard.headline.length >= 36 ? "text-destructive" : "text-muted-foreground"}`}>
+                      {wizard.headline.length}/40
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <ExternalLink size={11} /> Link de destino (gerado automaticamente):
+                    </p>
+                    <code className="break-all text-blue-600 dark:text-blue-400 text-[11px]">
+                      {restaurant?.slug
+                        ? `${window.location.origin}/r/${restaurant.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`
+                        : "Carregando..."}
+                    </code>
+                  </div>
+
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300">
+                    A campanha será criada como <strong>PAUSADA</strong> no Meta para sua revisão antes de ativar.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t shrink-0">
+              <button
+                type="button"
+                onClick={() => wizardStep > 1 ? setWizardStep(s => s - 1) : closeWizard()}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-md hover:bg-accent"
+              >
+                {wizardStep > 1 && <ChevronLeft size={15} />}
+                {wizardStep > 1 ? "Voltar" : "Cancelar"}
+              </button>
+
+              {wizardStep < 4 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(s => s + 1)}
+                  className="flex items-center gap-1.5 px-5 py-2 text-sm bg-[#1877F2] text-white rounded-md hover:opacity-90 font-medium"
+                >
+                  Próximo <ChevronRight size={15} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={metaMutation.isPending || !canAdvance()}
+                  className="flex items-center gap-2 px-5 py-2 text-sm bg-[#1877F2] text-white rounded-md hover:opacity-90 disabled:opacity-50 font-medium"
+                >
+                  <Facebook size={15} />
+                  {metaMutation.isPending ? "Enviando..." : "Publicar no Meta"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
