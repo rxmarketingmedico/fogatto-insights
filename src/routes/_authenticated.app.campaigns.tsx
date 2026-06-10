@@ -203,10 +203,10 @@ function CampaignsPage() {
                      {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
                    </td>
                    <td className="px-5 py-3 text-right">
-                     {c.meta_ad_id ? (
+                     {(c as any).meta_ad_id ? (
                        <div className="flex items-center justify-end gap-2 text-green-600">
                          <span className="text-[10px] font-bold uppercase border border-green-600 px-1 rounded bg-green-50">
-                           {c.meta_status || "Publicado"}
+                           {(c as any).meta_status || "Publicado"}
                          </span>
                          <Facebook size={14} />
                        </div>
