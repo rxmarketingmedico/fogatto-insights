@@ -17,8 +17,8 @@ function MetaCallbackPage() {
       if (code && state) {
         try {
           const result = await processCallback({ data: { code, state } });
-          // Store result in sessionStorage so the main window can pick it up
-          sessionStorage.setItem("meta_callback_result", JSON.stringify(result));
+          // Store result in localStorage so the main window can pick it up
+          localStorage.setItem("meta_callback_result", JSON.stringify(result));
           window.close();
         } catch (error: any) {
           console.error(error);

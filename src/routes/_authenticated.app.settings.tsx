@@ -51,12 +51,12 @@ function SettingsPage() {
   useEffect(() => {
     // Check for callback result from popup
     const interval = setInterval(() => {
-      const result = sessionStorage.getItem("meta_callback_result");
+      const result = localStorage.getItem("meta_callback_result");
       if (result) {
-        sessionStorage.removeItem("meta_callback_result");
+        localStorage.removeItem("meta_callback_result");
         setMetaSelection(JSON.parse(result));
       }
-    }, 1000);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,7 +64,19 @@ function SettingsPage() {
     try {
       if (!restaurant?.id) return;
       const { url } = await getMetaUrl({ data: { restaurantId: restaurant.id } });
-      window.open(url, "meta_auth", "width=600,height=700");
+      const popup = window.open(url, "meta_auth", "width=600,height=700");
+      
+      const timer = setInterval(() => {
+        const result = localStorage.getItem("meta_callback_result");
+        if (result) {
+          clearInterval(timer);
+          localStorage.removeItem("meta_callback_result");
+          setMetaSelection(JSON.parse(result));
+        }
+        if (popup?.closed && !localStorage.getItem("meta_callback_result")) {
+          clearInterval(timer);
+        }
+      }, 500);
     } catch (error: any) {
       toast.error(error.message);
     }
