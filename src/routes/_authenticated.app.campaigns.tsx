@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRestaurant, getCampaigns, upsertCampaign, getAdSpend, upsertAdSpend } from "@/lib/api/dashboard.functions";
+import { getRestaurant } from "@/lib/api/restaurant.functions";
+import { getCampaigns, upsertCampaign, getAdSpend, upsertAdSpend } from "@/lib/api/dashboard.functions";
 import { useState } from "react";
 import { Plus, Target, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/app/campaigns")({
   component: CampaignsPage,
