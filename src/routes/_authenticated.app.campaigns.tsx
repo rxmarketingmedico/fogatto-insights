@@ -145,7 +145,7 @@ function CampaignsPage() {
   const [locationResults, setLocationResults] = useState<Array<{ key: string; name: string; region: string }>>([]);
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const locationDebounce = useRef<ReturnType<typeof setTimeout>>();
+  const locationDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const [campaignForm, setCampaignForm] = useState({ name: "", platform: "meta", utm_campaign: "" });
   const [spendForm, setSpendForm] = useState({
