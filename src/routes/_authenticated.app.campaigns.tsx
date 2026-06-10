@@ -485,7 +485,7 @@ function CampaignsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Campanhas</h1>
         <div className="flex gap-2">
-          {restaurant?.meta_access_token && roas?.some((c: any) => c.meta_ad_id) && (
+          {restaurant?.meta_connected_at && roas?.some((c: any) => c.meta_ad_id) && (
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
@@ -627,7 +627,7 @@ function CampaignsPage() {
                         <Facebook size={13} className="text-[#1877F2] shrink-0" />
                       </div>
                     ) : (
-                      restaurant?.meta_access_token && (
+                      restaurant?.meta_connected_at && (
                         <button
                           onClick={() => openWizard(c)}
                           className="flex items-center gap-1.5 ml-auto text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"

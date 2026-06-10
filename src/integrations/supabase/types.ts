@@ -320,12 +320,37 @@ export type Database = {
           },
         ]
       }
+      restaurant_secrets: {
+        Row: {
+          meta_access_token: string | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          meta_access_token?: string | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          meta_access_token?: string | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_secrets_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurants: {
         Row: {
           created_at: string
           id: string
           logo_url: string | null
-          meta_access_token: string | null
           meta_ad_account_id: string | null
           meta_connected_at: string | null
           meta_page_id: string | null
@@ -339,7 +364,6 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
-          meta_access_token?: string | null
           meta_ad_account_id?: string | null
           meta_connected_at?: string | null
           meta_page_id?: string | null
@@ -353,7 +377,6 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
-          meta_access_token?: string | null
           meta_ad_account_id?: string | null
           meta_connected_at?: string | null
           meta_page_id?: string | null

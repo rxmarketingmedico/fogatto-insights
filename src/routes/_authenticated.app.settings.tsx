@@ -236,7 +236,7 @@ function SettingsPage() {
                   Publique anúncios no Facebook e Instagram diretamente pelo Fogatto.
                 </p>
                 
-                {restaurant?.meta_access_token ? (
+                {restaurant?.meta_connected_at ? (
                   <div className="mt-4 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
                       <CheckCircle2 size={16} />
@@ -257,7 +257,7 @@ function SettingsPage() {
               </div>
             </div>
             
-            {restaurant?.meta_access_token ? (
+            {restaurant?.meta_connected_at ? (
               <div className="flex flex-col items-end gap-2">
                 <button
                   onClick={handleConnectMeta}

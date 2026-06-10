@@ -7,6 +7,19 @@ const META_AUTH_URL = `https://www.facebook.com/${META_VERSION}/dialog/oauth`;
 const META_GRAPH_URL = `https://graph.facebook.com/${META_VERSION}`;
 const META_APP_ID_FALLBACK = "1676842143509066";
 
+// Fetch the Meta access token from the secrets table via service role.
+// Tokens are never exposed to the client or to authenticated RLS reads.
+async function getMetaAccessToken(_supabase: unknown, restaurantId: string): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("restaurant_secrets")
+    .select("meta_access_token")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.meta_access_token ?? null;
+}
+
 export const getMetaAuthUrl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
@@ -80,13 +93,20 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
     }));
     const pagesData = await pagesResponse.json();
 
-    // 5. Update restaurant with access token
+    // 5. Store access token in secrets table (service_role only) and mark restaurant as connected
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: secretError } = await supabaseAdmin
+      .from("restaurant_secrets")
+      .upsert({
+        restaurant_id: data.state,
+        meta_access_token: accessToken,
+        updated_at: new Date().toISOString(),
+      });
+    if (secretError) throw secretError;
+
     const { error: updateError } = await supabase
       .from("restaurants")
-      .update({
-        meta_access_token: accessToken,
-        meta_connected_at: new Date().toISOString(),
-      })
+      .update({ meta_connected_at: new Date().toISOString() })
       .eq("id", data.state);
 
     if (updateError) throw updateError;
@@ -127,10 +147,15 @@ export const disconnectMetaAds = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin
+      .from("restaurant_secrets")
+      .delete()
+      .eq("restaurant_id", data.restaurantId);
+
     const { error } = await supabase
       .from("restaurants")
       .update({
-        meta_access_token: null,
         meta_ad_account_id: null,
         meta_page_id: null,
         meta_connected_at: null,
@@ -152,20 +177,15 @@ export const searchMetaLocations = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("meta_access_token")
-      .eq("id", data.restaurantId)
-      .single();
-
-    if (!restaurant?.meta_access_token) return [];
+    const accessToken = await getMetaAccessToken(supabase, data.restaurantId);
+    if (!accessToken) return [];
 
     const res = await fetch(`${META_GRAPH_URL}/search?` + new URLSearchParams({
       type: "adgeolocation",
       q: data.query,
       location_types: "city",
       country_code: "BR",
-      access_token: restaurant.meta_access_token,
+      access_token: accessToken,
     }));
     const result = await res.json();
     if (result.error) return [];
@@ -190,12 +210,12 @@ export const updateMetaCampaignStatus = createServerFn({ method: "POST" })
 
     const { data: campaign } = await supabase
       .from("campaigns")
-      .select("meta_campaign_id, restaurants(meta_access_token)")
+      .select("meta_campaign_id, restaurant_id")
       .eq("id", data.campaignId)
       .single();
 
     if (!campaign?.meta_campaign_id) throw new Error("Campanha não publicada no Meta.");
-    const accessToken = (campaign.restaurants as any)?.meta_access_token;
+    const accessToken = await getMetaAccessToken(supabase, campaign.restaurant_id);
     if (!accessToken) throw new Error("Meta não conectado.");
 
     const res = await fetch(`${META_GRAPH_URL}/${campaign.meta_campaign_id}`, {
@@ -224,11 +244,12 @@ export const syncMetaInsights = createServerFn({ method: "POST" })
 
     const { data: restaurant } = await supabase
       .from("restaurants")
-      .select("meta_access_token, meta_ad_account_id")
+      .select("meta_ad_account_id")
       .eq("id", data.restaurantId)
       .single();
 
-    if (!restaurant?.meta_access_token) throw new Error("Meta não conectado.");
+    const accessToken = await getMetaAccessToken(supabase, data.restaurantId);
+    if (!accessToken || !restaurant?.meta_ad_account_id) throw new Error("Meta não conectado.");
 
     const { data: campaigns } = await supabase
       .from("campaigns")
@@ -252,7 +273,7 @@ export const syncMetaInsights = createServerFn({ method: "POST" })
             date_preset: "last_90d",
             time_increment: "1",
             limit: "100",
-            access_token: restaurant.meta_access_token,
+            access_token: accessToken,
           })
       );
       const insightsData = await insightsRes.json();
@@ -355,7 +376,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
 
     if (!campaign) throw new Error("Campanha não encontrada.");
     const restaurant = campaign.restaurants;
-    const accessToken = restaurant.meta_access_token;
+    const accessToken = await getMetaAccessToken(supabase, restaurant.id);
     const adAccountId = restaurant.meta_ad_account_id;
     const pageId = restaurant.meta_page_id;
 
