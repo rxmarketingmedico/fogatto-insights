@@ -10,8 +10,9 @@ import {
   deleteAdSpend,
   getCampaignRoas,
 } from "@/lib/api/dashboard.functions";
+import { publishMetaAd } from "@/lib/api/meta-ads.functions";
 import { useState } from "react";
-import { Plus, Trash2, TrendingUp, DollarSign } from "lucide-react";
+import { Plus, Trash2, TrendingUp, DollarSign, Facebook, ExternalLink, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/campaigns")({
@@ -32,11 +33,21 @@ function CampaignsPage() {
   const saveCampaign = useServerFn(upsertCampaign);
   const saveSpend = useServerFn(upsertAdSpend);
   const removeSpend = useServerFn(deleteAdSpend);
+  const publishToMeta = useServerFn(publishMetaAd);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [showSpendForm, setShowSpendForm] = useState(false);
+  const [showMetaPublishModal, setShowMetaPublishModal] = useState<any>(null);
+  const [metaAdForm, setMetaAdForm] = useState({
+    imageUrl: "",
+    primaryText: "",
+    headline: "",
+    dailyBudget: "10",
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: "",
+  });
   const [campaignForm, setCampaignForm] = useState({ name: "", platform: "meta", utm_campaign: "" });
   const [spendForm, setSpendForm] = useState({ campaign_id: "", date: new Date().toISOString().slice(0, 10), amount: "" });
 
@@ -93,6 +104,21 @@ function CampaignsPage() {
     },
   });
 
+  const metaMutation = useMutation({
+    mutationFn: (data: any) => publishToMeta({ data }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
+      setShowMetaPublishModal(null);
+      toast.success("Anúncio publicado no Meta! Revise no Gerenciador.", {
+        action: {
+          label: "Ver no Meta",
+          onClick: () => window.open(res.adsManagerUrl, "_blank"),
+        },
+      });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const roasColor = (v: number | null) => {
     if (v === null) return "text-muted-foreground";
     if (v >= 3) return "text-green-600 font-bold";
@@ -145,8 +171,9 @@ function CampaignsPage() {
                 <th className="px-5 py-3 text-left">Plataforma</th>
                 <th className="px-5 py-3 text-right">Gasto</th>
                 <th className="px-5 py-3 text-right">Receita atribuída</th>
-                <th className="px-5 py-3 text-right">ROAS</th>
-              </tr>
+                 <th className="px-5 py-3 text-right">ROAS</th>
+                 <th className="px-5 py-3"></th>
+               </tr>
             </thead>
             <tbody className="divide-y">
               {loadingRoas && (
@@ -172,10 +199,36 @@ function CampaignsPage() {
                   <td className="px-5 py-3 text-right tabular-nums text-primary font-semibold">
                     {c.revenue > 0 ? `R$ ${c.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : <span className="font-normal text-muted-foreground">—</span>}
                   </td>
-                  <td className={`px-5 py-3 text-right tabular-nums ${roasColor(c.roas)}`}>
-                    {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
-                  </td>
-                </tr>
+                   <td className={`px-5 py-3 text-right tabular-nums ${roasColor(c.roas)}`}>
+                     {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
+                   </td>
+                   <td className="px-5 py-3 text-right">
+                     {c.meta_ad_id ? (
+                       <div className="flex items-center justify-end gap-2 text-green-600">
+                         <span className="text-[10px] font-bold uppercase border border-green-600 px-1 rounded bg-green-50">
+                           {c.meta_status || "Publicado"}
+                         </span>
+                         <Facebook size={14} />
+                       </div>
+                     ) : (
+                       restaurant?.meta_access_token && (
+                         <button
+                           onClick={() => {
+                             setShowMetaPublishModal(c);
+                             setMetaAdForm(prev => ({
+                               ...prev,
+                               headline: c.name.slice(0, 40),
+                             }));
+                           }}
+                           className="flex items-center gap-1.5 ml-auto text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+                         >
+                           <Facebook size={12} />
+                           Publicar no Meta
+                         </button>
+                       )
+                     )}
+                   </td>
+                 </tr>
               ))}
             </tbody>
           </table>
@@ -337,6 +390,139 @@ function CampaignsPage() {
               <button type="button" onClick={() => setShowSpendForm(false)} className="px-4 py-2 text-sm rounded-md hover:bg-accent">Cancelar</button>
               <button disabled={spendMutation.isPending} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50">
                 {spendMutation.isPending ? "Salvando..." : "Registrar"}
+              </button>
+            </div>
+          </form>
+        </div>
+       )}
+
+      {/* Meta Publish Modal */}
+      {showMetaPublishModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              const destinationUrl = `${window.location.origin}/r/${restaurant!.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`;
+              metaMutation.mutate({
+                campaignId: showMetaPublishModal.id,
+                adData: {
+                  ...metaAdForm,
+                  dailyBudget: parseFloat(metaAdForm.dailyBudget),
+                  destinationUrl
+                }
+              });
+            }}
+            className="bg-card border rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 overflow-y-auto max-h-[90vh]"
+          >
+            <div className="flex items-center gap-2">
+              <Facebook className="text-[#1877F2]" />
+              <h3 className="font-bold text-lg">Publicar Anúncio no Meta</h3>
+            </div>
+            
+            <p className="text-sm text-muted-foreground">
+              A campanha será criada como <strong>PAUSADA</strong> no Gerenciador de Anúncios para sua revisão final.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">URL da Imagem</label>
+                  <input
+                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                    value={metaAdForm.imageUrl}
+                    onChange={e => setMetaAdForm({ ...metaAdForm, imageUrl: e.target.value })}
+                    placeholder="https://suaimagem.com/foto.jpg"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground">Use uma URL pública de imagem.</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Texto Principal (Legenda)</label>
+                  <textarea
+                    className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[100px]"
+                    value={metaAdForm.primaryText}
+                    onChange={e => setMetaAdForm({ ...metaAdForm, primaryText: e.target.value })}
+                    placeholder="O melhor hambúrguer da cidade na porta da sua casa! Peça agora."
+                    maxLength={125}
+                    required
+                  />
+                  <div className="text-[10px] text-right text-muted-foreground">{metaAdForm.primaryText.length}/125</div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Título do Anúncio</label>
+                  <input
+                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                    value={metaAdForm.headline}
+                    onChange={e => setMetaAdForm({ ...metaAdForm, headline: e.target.value })}
+                    placeholder="Peça pelo Fogatto e ganhe desconto!"
+                    maxLength={40}
+                    required
+                  />
+                  <div className="text-[10px] text-right text-muted-foreground">{metaAdForm.headline.length}/40</div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Orçamento Diário (R$)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    step="1"
+                    className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                    value={metaAdForm.dailyBudget}
+                    onChange={e => setMetaAdForm({ ...metaAdForm, dailyBudget: e.target.value })}
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground">Mínimo de R$ 5,00.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Calendar size={12} /> Início
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border rounded-md px-2 py-1.5 bg-background text-xs"
+                      value={metaAdForm.startDate}
+                      onChange={e => setMetaAdForm({ ...metaAdForm, startDate: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Calendar size={12} /> Fim (Opt)
+                    </label>
+                    <input
+                      type="date"
+                      className="w-full border rounded-md px-2 py-1.5 bg-background text-xs"
+                      value={metaAdForm.endDate}
+                      onChange={e => setMetaAdForm({ ...metaAdForm, endDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
+              <p className="font-semibold flex items-center gap-1">
+                <ExternalLink size={12} /> Link de destino (automático):
+              </p>
+              <code className="break-all text-blue-600">
+                {restaurant?.slug ? `${window.location.origin}/r/${restaurant.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}` : "Carregando..."}
+              </code>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowMetaPublishModal(null)} className="px-4 py-2 text-sm rounded-md hover:bg-accent">Cancelar</button>
+              <button 
+                disabled={metaMutation.isPending} 
+                className="px-6 py-2 text-sm bg-[#1877F2] text-white rounded-md hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {metaMutation.isPending ? "Enviando para o Meta..." : "Publicar agora"}
               </button>
             </div>
           </form>

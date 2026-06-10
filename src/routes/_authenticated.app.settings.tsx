@@ -208,7 +208,7 @@ function SettingsPage() {
                   <div className="mt-4 flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
                       <CheckCircle2 size={16} />
-                      Conectado em {new Date(restaurant.meta_connected_at).toLocaleDateString("pt-BR")}
+                      Conectado em {new Date(restaurant.meta_connected_at!).toLocaleDateString("pt-BR")}
                     </div>
                     {restaurant.meta_ad_account_id && (
                       <p className="text-sm text-muted-foreground">
