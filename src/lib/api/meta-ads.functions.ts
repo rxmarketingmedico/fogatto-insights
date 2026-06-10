@@ -7,6 +7,19 @@ const META_AUTH_URL = `https://www.facebook.com/${META_VERSION}/dialog/oauth`;
 const META_GRAPH_URL = `https://graph.facebook.com/${META_VERSION}`;
 const META_APP_ID_FALLBACK = "1676842143509066";
 
+// Fetch the Meta access token from the secrets table via service role.
+// Tokens are never exposed to the client or to authenticated RLS reads.
+async function getMetaAccessToken(_supabase: unknown, restaurantId: string): Promise<string | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("restaurant_secrets")
+    .select("meta_access_token")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.meta_access_token ?? null;
+}
+
 export const getMetaAuthUrl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
