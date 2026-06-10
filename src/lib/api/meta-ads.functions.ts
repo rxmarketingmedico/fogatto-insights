@@ -12,7 +12,7 @@ export const getMetaAuthUrl = createServerFn({ method: "GET" })
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
   .handler(async ({ data }) => {
     const clientId = process.env.META_APP_ID || META_APP_ID_FALLBACK;
-    const redirectUri = `${process.env.APP_URL_FOR_META}/meta-callback`;
+    const redirectUri = "https://fogatto.lovable.app/meta-callback";
 
     if (!clientId) throw new Error("META_APP_ID não configurado.");
 
@@ -39,7 +39,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
     const { supabase } = context;
     const clientId = process.env.META_APP_ID || META_APP_ID_FALLBACK;
     const clientSecret = process.env.META_APP_SECRET;
-    const redirectUri = `${process.env.APP_URL_FOR_META}/meta-callback`;
+    const redirectUri = "https://fogatto.lovable.app/meta-callback";
 
     if (!clientId || !clientSecret) throw new Error("Meta Ads não configurado no servidor.");
 
