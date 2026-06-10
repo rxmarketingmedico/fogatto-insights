@@ -18,6 +18,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated.app.settings'
 import { Route as AuthenticatedAppOrdersRouteImport } from './routes/_authenticated.app.orders'
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
+import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated.app.customers'
 import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
 
 const AuthRoute = AuthRouteImport.update({
@@ -65,6 +66,12 @@ const AuthenticatedAppMenuRoute = AuthenticatedAppMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppCustomersRoute =
+  AuthenticatedAppCustomersRouteImport.update({
+    id: '/customers',
+    path: '/customers',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppCampaignsRoute =
   AuthenticatedAppCampaignsRouteImport.update({
     id: '/campaigns',
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
+  '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
@@ -88,6 +96,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
+  '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
@@ -101,6 +110,7 @@ export interface FileRoutesById {
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
+  '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRoute
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
   '/_authenticated/app/orders': typeof AuthenticatedAppOrdersRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/r/$slug'
     | '/app/campaigns'
+    | '/app/customers'
     | '/app/menu'
     | '/app/orders'
     | '/app/settings'
@@ -124,6 +135,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/r/$slug'
     | '/app/campaigns'
+    | '/app/customers'
     | '/app/menu'
     | '/app/orders'
     | '/app/settings'
@@ -136,6 +148,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app'
     | '/r/$slug'
     | '/_authenticated/app/campaigns'
+    | '/_authenticated/app/customers'
     | '/_authenticated/app/menu'
     | '/_authenticated/app/orders'
     | '/_authenticated/app/settings'
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppMenuRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/customers': {
+      id: '/_authenticated/app/customers'
+      path: '/customers'
+      fullPath: '/app/customers'
+      preLoaderRoute: typeof AuthenticatedAppCustomersRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/campaigns': {
       id: '/_authenticated/app/campaigns'
       path: '/campaigns'
@@ -226,6 +246,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppCampaignsRoute: typeof AuthenticatedAppCampaignsRoute
+  AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRoute
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
   AuthenticatedAppOrdersRoute: typeof AuthenticatedAppOrdersRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
@@ -234,6 +255,7 @@ interface AuthenticatedAppRouteChildren {
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppCampaignsRoute: AuthenticatedAppCampaignsRoute,
+  AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRoute,
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
   AuthenticatedAppOrdersRoute: AuthenticatedAppOrdersRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
