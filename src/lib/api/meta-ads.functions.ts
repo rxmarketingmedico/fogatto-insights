@@ -177,6 +177,43 @@ export const searchMetaLocations = createServerFn({ method: "GET" })
     }));
   });
 
+export const updateMetaCampaignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      campaignId: z.string(),
+      status: z.enum(["ACTIVE", "PAUSED"]),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: campaign } = await supabase
+      .from("campaigns")
+      .select("meta_campaign_id, restaurants(meta_access_token)")
+      .eq("id", data.campaignId)
+      .single();
+
+    if (!campaign?.meta_campaign_id) throw new Error("Campanha não publicada no Meta.");
+    const accessToken = (campaign.restaurants as any)?.meta_access_token;
+    if (!accessToken) throw new Error("Meta não conectado.");
+
+    const res = await fetch(`${META_GRAPH_URL}/${campaign.meta_campaign_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: data.status, access_token: accessToken }),
+    });
+    const result = await res.json();
+    if (result.error) throw new Error(result.error.message);
+
+    await supabase
+      .from("campaigns")
+      .update({ meta_status: data.status.toLowerCase() })
+      .eq("id", data.campaignId);
+
+    return { success: true, status: data.status.toLowerCase() };
+  });
+
 export const syncMetaInsights = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: any) =>

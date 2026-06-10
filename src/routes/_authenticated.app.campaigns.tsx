@@ -10,7 +10,7 @@ import {
   deleteAdSpend,
   getCampaignRoas,
 } from "@/lib/api/dashboard.functions";
-import { publishMetaAd, searchMetaLocations, syncMetaInsights } from "@/lib/api/meta-ads.functions";
+import { publishMetaAd, searchMetaLocations, syncMetaInsights, updateMetaCampaignStatus } from "@/lib/api/meta-ads.functions";
 import { useState, useRef } from "react";
 import {
   Plus,
@@ -30,6 +30,8 @@ import {
   RefreshCw,
   MousePointerClick,
   Layers,
+  Play,
+  Pause,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -117,6 +119,7 @@ function CampaignsPage() {
   const publishToMeta = useServerFn(publishMetaAd);
   const searchLocations = useServerFn(searchMetaLocations);
   const syncInsights = useServerFn(syncMetaInsights);
+  const updateStatus = useServerFn(updateMetaCampaignStatus);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
@@ -191,6 +194,20 @@ function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
       toast.success("Lançamento removido.");
     },
+  });
+
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const statusMutation = useMutation({
+    mutationFn: ({ campaignId, status }: { campaignId: string; status: "ACTIVE" | "PAUSED" }) =>
+      updateStatus({ data: { campaignId, status } }),
+    onMutate: ({ campaignId }) => setTogglingId(campaignId),
+    onSuccess: (_res, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
+      toast.success(status === "ACTIVE" ? "Campanha ativada no Meta!" : "Campanha pausada no Meta.");
+    },
+    onError: (e: any) => toast.error(e.message),
+    onSettled: () => setTogglingId(null),
   });
 
   const syncMutation = useMutation({
@@ -406,11 +423,43 @@ function CampaignsPage() {
                   </td>
                   <td className="px-5 py-3 text-right">
                     {(c as any).meta_ad_id ? (
-                      <div className="flex items-center justify-end gap-2 text-green-600">
-                        <span className="text-[10px] font-bold uppercase border border-green-600 px-1 rounded bg-green-50">
-                          {(c as any).meta_status || "Publicado"}
-                        </span>
-                        <Facebook size={14} />
+                      <div className="flex items-center justify-end gap-2">
+                        {(c as any).meta_status === "active" ? (
+                          <>
+                            <span className="text-[10px] font-bold text-green-600 border border-green-500 bg-green-50 dark:bg-green-950/20 px-1.5 py-0.5 rounded uppercase">
+                              Ativo
+                            </span>
+                            <button
+                              onClick={() => statusMutation.mutate({ campaignId: c.id, status: "PAUSED" })}
+                              disabled={togglingId === c.id}
+                              className="flex items-center gap-1 text-xs text-muted-foreground border rounded-md px-2 py-1 hover:bg-accent disabled:opacity-50"
+                              title="Pausar campanha"
+                            >
+                              {togglingId === c.id
+                                ? <RefreshCw size={11} className="animate-spin" />
+                                : <Pause size={11} />}
+                              Pausar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-[10px] font-bold text-muted-foreground border px-1.5 py-0.5 rounded uppercase">
+                              Pausado
+                            </span>
+                            <button
+                              onClick={() => statusMutation.mutate({ campaignId: c.id, status: "ACTIVE" })}
+                              disabled={togglingId === c.id}
+                              className="flex items-center gap-1 text-xs font-semibold text-green-600 border border-green-500 rounded-md px-2 py-1 hover:bg-green-50 dark:hover:bg-green-950/20 disabled:opacity-50"
+                              title="Ativar campanha"
+                            >
+                              {togglingId === c.id
+                                ? <RefreshCw size={11} className="animate-spin" />
+                                : <Play size={11} />}
+                              Ativar
+                            </button>
+                          </>
+                        )}
+                        <Facebook size={13} className="text-[#1877F2] shrink-0" />
                       </div>
                     ) : (
                       restaurant?.meta_access_token && (
