@@ -328,10 +328,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_restaurant_owner: {
-        Args: { _restaurant_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       campaign_platform: "meta" | "google" | "outro"
