@@ -3,6 +3,7 @@ import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, Shopping
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { FogattoLogo } from "@/components/FogattoLogo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/_authenticated/app")({
   component: AppLayout,
@@ -44,8 +45,9 @@ function AppLayout() {
           <NavItem to="/app/settings" icon={<Settings size={18} />} label="Configurações" />
         </nav>
 
-        {/* Sign out */}
+        {/* Theme toggle + Sign out */}
         <div className="p-3" style={{ borderTop: "1px solid oklch(0.617 0.196 38.5 / 0.14)" }}>
+          <ThemeToggle />
           <button
             onClick={handleSignOut}
             className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors"
