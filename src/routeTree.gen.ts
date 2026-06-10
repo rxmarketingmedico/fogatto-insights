@@ -9,7 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as MetaCallbackImport } from './routes/meta-callback'
+import { Route as MetaCallbackRouteImport } from './routes/meta-callback'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -22,7 +22,7 @@ import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated.app.customers'
 import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
 
-const MetaCallbackRoute = MetaCallbackImport.update({
+const MetaCallbackRoute = MetaCallbackRouteImport.update({
   id: '/meta-callback',
   path: '/meta-callback',
   getParentRoute: () => rootRouteImport,
@@ -87,8 +87,8 @@ const AuthenticatedAppCampaignsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/meta-callback': typeof MetaCallbackRoute
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
@@ -100,8 +100,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/meta-callback': typeof MetaCallbackRoute
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/r/$slug': typeof RSlugRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
@@ -113,9 +113,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/meta-callback': typeof MetaCallbackRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
+  '/meta-callback': typeof MetaCallbackRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
   '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
@@ -129,8 +129,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/meta-callback'
     | '/auth'
+    | '/meta-callback'
     | '/app'
     | '/r/$slug'
     | '/app/campaigns'
@@ -142,8 +142,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/meta-callback'
     | '/auth'
+    | '/meta-callback'
     | '/r/$slug'
     | '/app/campaigns'
     | '/app/customers'
@@ -154,9 +154,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/meta-callback'
     | '/_authenticated'
     | '/auth'
+    | '/meta-callback'
     | '/_authenticated/app'
     | '/r/$slug'
     | '/_authenticated/app/campaigns'
@@ -169,33 +169,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MetaCallbackRoute: typeof MetaCallbackRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
+  MetaCallbackRoute: typeof MetaCallbackRoute
   RSlugRoute: typeof RSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/meta-callback': {
       id: '/meta-callback'
       path: '/meta-callback'
       fullPath: '/meta-callback'
-      preLoaderRoute: typeof MetaCallbackImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteImport
+      preLoaderRoute: typeof MetaCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -205,12 +191,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/app': {
-      id: '/_authenticated/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AuthenticatedAppRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/r/$slug': {
       id: '/r/$slug'
@@ -219,32 +212,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/app/campaigns': {
-      id: '/_authenticated/app/campaigns'
-      path: '/campaigns'
-      fullPath: '/app/campaigns'
-      preLoaderRoute: typeof AuthenticatedAppCampaignsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
+    '/_authenticated/app': {
+      id: '/_authenticated/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AuthenticatedAppRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/app/customers': {
-      id: '/_authenticated/app/customers'
-      path: '/customers'
-      fullPath: '/app/customers'
-      preLoaderRoute: typeof AuthenticatedAppCustomersRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/app/menu': {
-      id: '/_authenticated/app/menu'
-      path: '/menu'
-      fullPath: '/app/menu'
-      preLoaderRoute: typeof AuthenticatedAppMenuRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/app/orders': {
-      id: '/_authenticated/app/orders'
-      path: '/orders'
-      fullPath: '/app/orders'
-      preLoaderRoute: typeof AuthenticatedAppOrdersRouteImport
+    '/_authenticated/app/': {
+      id: '/_authenticated/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/settings': {
@@ -254,11 +233,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSettingsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/app/': {
-      id: '/_authenticated/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+    '/_authenticated/app/orders': {
+      id: '/_authenticated/app/orders'
+      path: '/orders'
+      fullPath: '/app/orders'
+      preLoaderRoute: typeof AuthenticatedAppOrdersRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/menu': {
+      id: '/_authenticated/app/menu'
+      path: '/menu'
+      fullPath: '/app/menu'
+      preLoaderRoute: typeof AuthenticatedAppMenuRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/customers': {
+      id: '/_authenticated/app/customers'
+      path: '/customers'
+      fullPath: '/app/customers'
+      preLoaderRoute: typeof AuthenticatedAppCustomersRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/campaigns': {
+      id: '/_authenticated/app/campaigns'
+      path: '/campaigns'
+      fullPath: '/app/campaigns'
+      preLoaderRoute: typeof AuthenticatedAppCampaignsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
   }
@@ -299,12 +299,11 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MetaCallbackRoute: MetaCallbackRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
+  MetaCallbackRoute: MetaCallbackRoute,
   RSlugRoute: RSlugRoute,
 }
-
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
