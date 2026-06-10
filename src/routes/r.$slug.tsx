@@ -118,19 +118,20 @@ function PublicMenuPage() {
       </main>
 
       {cartItemsCount > 0 && !showCheckout && (
-        <div className="fixed bottom-6 left-4 right-4 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 animate-in slide-in-from-bottom-4 duration-300">
           <button 
             onClick={() => setShowCheckout(true)}
-            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold shadow-lg flex justify-between px-6"
+            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold shadow-lg flex justify-between px-6 items-center"
           >
             <span>Ver Carrinho ({cartItemsCount})</span>
-            <span>R$ {Object.entries(cart).reduce((sum, [id, q]) => {
+            <span className="text-lg">R$ {Object.entries(cart).reduce((sum, [id, q]) => {
               const item = items?.find(i => i.id === id);
               return sum + (Number(item?.price || 0) * q);
             }, 0).toFixed(2)}</span>
           </button>
         </div>
       )}
+
 
       {showCheckout && (
         <div className="fixed inset-0 bg-background/95 z-50 p-6 flex flex-col">
