@@ -10,7 +10,7 @@ import {
   deleteAdSpend,
   getCampaignRoas,
 } from "@/lib/api/dashboard.functions";
-import { publishMetaAd, searchMetaLocations } from "@/lib/api/meta-ads.functions";
+import { publishMetaAd, searchMetaLocations, syncMetaInsights } from "@/lib/api/meta-ads.functions";
 import { useState, useRef } from "react";
 import {
   Plus,
@@ -27,6 +27,9 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  RefreshCw,
+  MousePointerClick,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,6 +116,7 @@ function CampaignsPage() {
   const removeSpend = useServerFn(deleteAdSpend);
   const publishToMeta = useServerFn(publishMetaAd);
   const searchLocations = useServerFn(searchMetaLocations);
+  const syncInsights = useServerFn(syncMetaInsights);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
@@ -187,6 +191,18 @@ function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
       toast.success("Lançamento removido.");
     },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => syncInsights({ data: { restaurantId: restaurant!.id } }),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["campaign-roas"] });
+      queryClient.invalidateQueries({ queryKey: ["ad-spend"] });
+      toast.success(
+        `Sincronizado! ${res.synced} campanha(s) · R$ ${Number(res.totalSpend).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · ${Number(res.totalImpressions).toLocaleString("pt-BR")} impressões`
+      );
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const metaMutation = useMutation({
@@ -287,6 +303,19 @@ function CampaignsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Campanhas</h1>
         <div className="flex gap-2">
+          {restaurant?.meta_access_token && roas?.some((c: any) => c.meta_ad_id) && (
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+              title={roas?.find((c: any) => c.meta_last_synced_at)
+                ? `Última sync: ${new Date((roas.find((c: any) => c.meta_last_synced_at) as any).meta_last_synced_at).toLocaleString("pt-BR")}`
+                : "Sincronizar dados do Meta"}
+            >
+              <RefreshCw size={15} className={syncMutation.isPending ? "animate-spin" : ""} />
+              {syncMutation.isPending ? "Sincronizando..." : "Sincronizar Meta"}
+            </button>
+          )}
           <button
             onClick={() => setShowSpendForm(true)}
             className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium hover:bg-accent transition-colors"
@@ -347,6 +376,23 @@ function CampaignsPage() {
                   <td className="px-5 py-3">
                     <p className="font-medium">{c.name}</p>
                     <p className="text-xs text-muted-foreground">utm_campaign={c.utm_campaign}</p>
+                    {((c as any).meta_impressions > 0 || (c as any).meta_clicks > 0) && (
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Layers size={10} />
+                          {Number((c as any).meta_impressions).toLocaleString("pt-BR")} impressões
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <MousePointerClick size={10} />
+                          {Number((c as any).meta_clicks).toLocaleString("pt-BR")} cliques
+                        </span>
+                        {(c as any).meta_impressions > 0 && (c as any).meta_clicks > 0 && (
+                          <span className="text-[11px] text-muted-foreground">
+                            CTR {((Number((c as any).meta_clicks) / Number((c as any).meta_impressions)) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{PLATFORM_LABELS[c.platform] ?? c.platform}</td>
                   <td className="px-5 py-3 text-right tabular-nums">
@@ -410,7 +456,16 @@ function CampaignsPage() {
               )}
               {spends?.map(s => (
                 <tr key={s.id} className="hover:bg-accent/40">
-                  <td className="px-5 py-3 font-medium">{(s as any).campaigns?.name ?? "—"}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{(s as any).campaigns?.name ?? "—"}</span>
+                      {(s as any).source === "meta" && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-[#1877F2] border border-[#1877F2]/30 bg-blue-50 dark:bg-blue-950/20 px-1.5 py-0.5 rounded">
+                          <Facebook size={9} /> Meta
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-muted-foreground">
                     {new Date(s.date + "T12:00:00").toLocaleDateString("pt-BR")}
                   </td>

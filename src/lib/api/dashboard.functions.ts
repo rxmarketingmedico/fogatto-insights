@@ -188,7 +188,7 @@ export const getCampaignRoas = createServerFn({ method: "GET" })
     const { supabase } = context;
 
     const [{ data: campaigns }, { data: spends }, ordersRes] = await Promise.all([
-      supabase.from("campaigns").select("id, name, platform, utm_campaign, status, meta_ad_id, meta_status").eq("restaurant_id", data.restaurantId),
+      supabase.from("campaigns").select("id, name, platform, utm_campaign, status, meta_ad_id, meta_status, meta_impressions, meta_clicks, meta_last_synced_at").eq("restaurant_id", data.restaurantId),
       supabase.from("ad_spend").select("campaign_id, amount").eq("restaurant_id", data.restaurantId),
       (() => {
         let q = supabase

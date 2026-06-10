@@ -177,6 +177,99 @@ export const searchMetaLocations = createServerFn({ method: "GET" })
     }));
   });
 
+export const syncMetaInsights = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({ restaurantId: z.string() }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("meta_access_token, meta_ad_account_id")
+      .eq("id", data.restaurantId)
+      .single();
+
+    if (!restaurant?.meta_access_token) throw new Error("Meta não conectado.");
+
+    const { data: campaigns } = await supabase
+      .from("campaigns")
+      .select("id, meta_campaign_id")
+      .eq("restaurant_id", data.restaurantId)
+      .not("meta_campaign_id", "is", null);
+
+    if (!campaigns || campaigns.length === 0) {
+      return { synced: 0, totalSpend: 0, totalImpressions: 0 };
+    }
+
+    let totalSpend = 0;
+    let totalImpressions = 0;
+    let synced = 0;
+
+    for (const campaign of campaigns) {
+      const insightsRes = await fetch(
+        `${META_GRAPH_URL}/${campaign.meta_campaign_id}/insights?` +
+          new URLSearchParams({
+            fields: "spend,impressions,clicks,reach",
+            date_preset: "last_90d",
+            time_increment: "1",
+            limit: "100",
+            access_token: restaurant.meta_access_token,
+          })
+      );
+      const insightsData = await insightsRes.json();
+      if (insightsData.error) continue;
+
+      const rows: Array<{ date_start: string; spend: string; impressions: string; clicks: string; reach: string }> =
+        insightsData.data || [];
+
+      // Aggregate totals for campaign columns
+      const aggSpend = rows.reduce((s, r) => s + parseFloat(r.spend || "0"), 0);
+      const aggImpressions = rows.reduce((s, r) => s + parseInt(r.impressions || "0"), 0);
+      const aggClicks = rows.reduce((s, r) => s + parseInt(r.clicks || "0"), 0);
+      const aggReach = rows.reduce((s, r) => s + parseInt(r.reach || "0"), 0);
+
+      // Remove old meta-synced spend records and re-insert fresh ones
+      await supabase
+        .from("ad_spend")
+        .delete()
+        .eq("campaign_id", campaign.id)
+        .eq("source", "meta");
+
+      const spendRows = rows
+        .filter(r => parseFloat(r.spend || "0") > 0)
+        .map(r => ({
+          restaurant_id: data.restaurantId,
+          campaign_id: campaign.id,
+          date: r.date_start,
+          amount: parseFloat(r.spend),
+          source: "meta",
+        }));
+
+      if (spendRows.length > 0) {
+        await supabase.from("ad_spend").insert(spendRows);
+      }
+
+      // Update campaign with aggregate metrics
+      await supabase
+        .from("campaigns")
+        .update({
+          meta_impressions: aggImpressions,
+          meta_clicks: aggClicks,
+          meta_reach: aggReach,
+          meta_last_synced_at: new Date().toISOString(),
+        })
+        .eq("id", campaign.id);
+
+      totalSpend += aggSpend;
+      totalImpressions += aggImpressions;
+      synced++;
+    }
+
+    return { synced, totalSpend, totalImpressions };
+  });
+
 const OPTIMIZATION_GOAL: Record<string, string> = {
   OUTCOME_TRAFFIC: "LINK_CLICKS",
   OUTCOME_SALES: "LINK_CLICKS",
