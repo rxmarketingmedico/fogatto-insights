@@ -128,7 +128,7 @@ export const upsertAdSpend = createServerFn({ method: "POST" })
       id: z.string().uuid().optional(),
       restaurant_id: z.string().uuid(),
       campaign_id: z.string().uuid(),
-      date: z.string(), // YYYY-MM-DD
+      date: z.string(),
       amount: z.number().min(0),
     }).parse(data)
   )
@@ -142,4 +142,82 @@ export const upsertAdSpend = createServerFn({ method: "POST" })
 
     if (error) throw error;
     return spend;
+  });
+
+export const deleteAdSpend = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error } = await supabase.from("ad_spend").delete().eq("id", data.id);
+    if (error) throw error;
+    return { success: true };
+  });
+
+export const getCustomers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      restaurantId: z.string().uuid(),
+      limit: z.number().default(100),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: customers, error } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("restaurant_id", data.restaurantId)
+      .order("first_seen_at", { ascending: false })
+      .limit(data.limit);
+
+    if (error) throw error;
+    return customers;
+  });
+
+export const getCampaignRoas = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      restaurantId: z.string().uuid(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const [{ data: campaigns }, { data: spends }, ordersRes] = await Promise.all([
+      supabase.from("campaigns").select("id, name, platform, utm_campaign, status").eq("restaurant_id", data.restaurantId),
+      supabase.from("ad_spend").select("campaign_id, amount").eq("restaurant_id", data.restaurantId),
+      (() => {
+        let q = supabase
+          .from("orders")
+          .select("utm_campaign, total")
+          .eq("restaurant_id", data.restaurantId);
+        if (data.from) q = q.gte("created_at", data.from);
+        if (data.to) q = q.lte("created_at", data.to);
+        return q;
+      })(),
+    ]);
+
+    if (!campaigns) return [];
+
+    const spendByCampaignId = (spends ?? []).reduce<Record<string, number>>((acc, s) => {
+      acc[s.campaign_id] = (acc[s.campaign_id] ?? 0) + Number(s.amount);
+      return acc;
+    }, {});
+
+    const revByUtmCampaign = (ordersRes.data ?? []).reduce<Record<string, number>>((acc, o) => {
+      const key = o.utm_campaign ?? "__none__";
+      acc[key] = (acc[key] ?? 0) + Number(o.total);
+      return acc;
+    }, {});
+
+    return campaigns.map(c => {
+      const spend = spendByCampaignId[c.id] ?? 0;
+      const revenue = revByUtmCampaign[c.utm_campaign] ?? 0;
+      const roas = spend > 0 ? revenue / spend : null;
+      return { ...c, spend, revenue, roas };
+    });
   });

@@ -35,21 +35,44 @@ export const createOrder = createServerFn({ method: "POST" })
       
     if (rError || !restaurant) throw new Error("Restaurante não encontrado");
 
-    // 2. Upsert customer (dedupe by phone within restaurant)
-    const { data: customer, error: cError } = await supabaseAdmin
+    // 2. Dedupe customer by phone — first_utm_* and first_seen_at are never overwritten.
+    const { data: existingCustomer } = await supabaseAdmin
       .from("customers")
-      .upsert({
-        restaurant_id: restaurant.id,
-        phone: data.customer.phone,
-        name: data.customer.name,
-        first_utm_source: data.attribution.utm_source,
-        first_utm_campaign: data.attribution.utm_campaign,
-        first_seen_at: data.attribution.first_touch_at || new Date().toISOString(),
-      }, { onConflict: "restaurant_id, phone" })
       .select()
-      .single();
+      .eq("restaurant_id", restaurant.id)
+      .eq("phone", data.customer.phone)
+      .maybeSingle();
 
-    if (cError) throw cError;
+    let customer;
+    if (existingCustomer) {
+      if (data.customer.name && existingCustomer.name !== data.customer.name) {
+        const { data: updated, error: uErr } = await supabaseAdmin
+          .from("customers")
+          .update({ name: data.customer.name })
+          .eq("id", existingCustomer.id)
+          .select()
+          .single();
+        if (uErr) throw uErr;
+        customer = updated;
+      } else {
+        customer = existingCustomer;
+      }
+    } else {
+      const { data: inserted, error: iErr } = await supabaseAdmin
+        .from("customers")
+        .insert({
+          restaurant_id: restaurant.id,
+          phone: data.customer.phone,
+          name: data.customer.name,
+          first_utm_source: data.attribution.utm_source,
+          first_utm_campaign: data.attribution.utm_campaign,
+          first_seen_at: data.attribution.first_touch_at || new Date().toISOString(),
+        })
+        .select()
+        .single();
+      if (iErr) throw iErr;
+      customer = inserted;
+    }
 
     // 3. Get actual prices from menu items (security: don't trust client prices)
     const itemIds = data.items.map(i => i.menu_item_id);
