@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated.ap
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated.app.index'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated.app.settings'
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
+import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -58,12 +59,19 @@ const AuthenticatedAppMenuRoute = AuthenticatedAppMenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppCampaignsRoute =
+  AuthenticatedAppCampaignsRouteImport.update({
+    id: '/campaigns',
+    path: '/campaigns',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
+  '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -72,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/r/$slug': typeof RSlugRoute
+  '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -83,6 +92,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/r/$slug': typeof RSlugRoute
+  '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -94,11 +104,19 @@ export interface FileRouteTypes {
     | '/auth'
     | '/app'
     | '/r/$slug'
+    | '/app/campaigns'
     | '/app/menu'
     | '/app/settings'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/r/$slug' | '/app/menu' | '/app/settings' | '/app'
+  to:
+    | '/'
+    | '/auth'
+    | '/r/$slug'
+    | '/app/campaigns'
+    | '/app/menu'
+    | '/app/settings'
+    | '/app'
   id:
     | '__root__'
     | '/'
@@ -106,6 +124,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/app'
     | '/r/$slug'
+    | '/_authenticated/app/campaigns'
     | '/_authenticated/app/menu'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
@@ -176,16 +195,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppMenuRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/campaigns': {
+      id: '/_authenticated/app/campaigns'
+      path: '/campaigns'
+      fullPath: '/app/campaigns'
+      preLoaderRoute: typeof AuthenticatedAppCampaignsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppCampaignsRoute: typeof AuthenticatedAppCampaignsRoute
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppCampaignsRoute: AuthenticatedAppCampaignsRoute,
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
