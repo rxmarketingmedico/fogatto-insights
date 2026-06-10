@@ -60,6 +60,11 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_campaign_id: string | null
+          meta_published_at: string | null
+          meta_status: string | null
           name: string
           platform: Database["public"]["Enums"]["campaign_platform"]
           restaurant_id: string
@@ -70,6 +75,11 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_published_at?: string | null
+          meta_status?: string | null
           name: string
           platform: Database["public"]["Enums"]["campaign_platform"]
           restaurant_id: string
@@ -80,6 +90,11 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          meta_published_at?: string | null
+          meta_status?: string | null
           name?: string
           platform?: Database["public"]["Enums"]["campaign_platform"]
           restaurant_id?: string
@@ -295,6 +310,10 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          meta_access_token: string | null
+          meta_ad_account_id: string | null
+          meta_connected_at: string | null
+          meta_page_id: string | null
           name: string
           owner_id: string
           slug: string
@@ -305,6 +324,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_connected_at?: string | null
+          meta_page_id?: string | null
           name: string
           owner_id: string
           slug: string
@@ -315,6 +338,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          meta_access_token?: string | null
+          meta_ad_account_id?: string | null
+          meta_connected_at?: string | null
+          meta_page_id?: string | null
           name?: string
           owner_id?: string
           slug?: string
