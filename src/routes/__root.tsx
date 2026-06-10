@@ -80,14 +80,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Fogatto" },
+      { name: "description", content: "Fogatto Insights empowers independent restaurants to track customer acquisition and revenue from ads." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Fogatto" },
+      { property: "og:description", content: "Fogatto Insights empowers independent restaurants to track customer acquisition and revenue from ads." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Fogatto" },
+      { name: "twitter:description", content: "Fogatto Insights empowers independent restaurants to track customer acquisition and revenue from ads." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e81253da-3cc6-49ea-86f2-192317599062/id-preview-91a227d7--d37dd9e4-878e-4f62-a4a9-005c9cb20ebc.lovable.app-1781100483157.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e81253da-3cc6-49ea-86f2-192317599062/id-preview-91a227d7--d37dd9e4-878e-4f62-a4a9-005c9cb20ebc.lovable.app-1781100483157.png" },
     ],
     links: [
       {
