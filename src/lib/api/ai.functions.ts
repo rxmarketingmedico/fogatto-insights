@@ -52,46 +52,11 @@ export const generateAdCreative = createServerFn({ method: "POST" })
 
     if (!restaurant || !item) throw new Error("Dados não encontrados.");
 
-    // 1. Generate image with DALL-E 3
-    const imageRes = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: buildImagePrompt(restaurant.name, item),
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-      }),
-    });
-    const imageData = await imageRes.json();
-    if (imageData.error) throw new Error(`Erro DALL-E: ${imageData.error.message}`);
-    const imageUrl: string = imageData.data[0].url;
-
-    // 2. Generate ad copy with GPT-4o-mini
-    const copyRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: buildCopyPrompt(restaurant.name, item) }],
-        response_format: { type: "json_object" },
-        max_tokens: 200,
-      }),
-    });
-    const copyData = await copyRes.json();
-    if (copyData.error) throw new Error(`Erro GPT: ${copyData.error.message}`);
-
-    const copy = JSON.parse(copyData.choices[0].message.content) as {
-      primaryText?: string;
-      headline?: string;
-    };
+    // Run image generation and copy generation in parallel
+    const [imageUrl, copy] = await Promise.all([
+      generateImage(apiKey, restaurant.name, item),
+      generateCopy(apiKey, restaurant.name, item),
+    ]);
 
     return {
       imageUrl,
@@ -100,41 +65,177 @@ export const generateAdCreative = createServerFn({ method: "POST" })
     };
   });
 
-function buildImagePrompt(restaurantName: string, item: {
-  name: string;
-  description: string | null;
-  price: number;
-}) {
-  return [
-    `Professional food advertisement photograph for a Brazilian restaurant called "${restaurantName}".`,
-    `Dish: "${item.name}"${item.description ? ` — ${item.description}` : ""}.`,
-    `Price shown in ad: R$ ${Number(item.price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
-    `Style: High-end food photography, warm studio lighting, shallow depth of field with soft bokeh background,`,
-    `appetizing vibrant colors, beautifully plated on a clean dark marble or rustic wood surface.`,
-    `Composition: Square 1:1, close-up macro shot, photorealistic, ultra-detailed.`,
-    `No text, no logos, no watermarks, no people.`,
-    `The food must look incredibly fresh, delicious and professionally prepared for social media advertising.`,
-  ].join(" ");
+// ─── Image generation ────────────────────────────────────────────────────────
+
+async function generateImage(
+  apiKey: string,
+  restaurantName: string,
+  item: { name: string; description: string | null; price: number; photo_url: string | null }
+): Promise<string> {
+  // If item has a photo, use gpt-image-1 to edit/enhance it
+  if (item.photo_url) {
+    return editImageWithAI(apiKey, restaurantName, item);
+  }
+  // Otherwise generate from scratch with DALL-E 3
+  return generateImageFromText(apiKey, restaurantName, item);
 }
 
-function buildCopyPrompt(restaurantName: string, item: {
-  name: string;
-  description: string | null;
-  price: number;
-}) {
-  return `Você é especialista em marketing digital para restaurantes brasileiros.
-Crie um anúncio para Meta Ads (Facebook/Instagram) para o seguinte prato:
+async function generateImageFromText(
+  apiKey: string,
+  restaurantName: string,
+  item: { name: string; description: string | null }
+): Promise<string> {
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "dall-e-3",
+      prompt: buildDallePrompt(restaurantName, item),
+      n: 1,
+      size: "1024x1024",
+      quality: "hd",
+    }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(`Erro DALL-E: ${data.error.message}`);
+  return data.data[0].url as string;
+}
 
-Restaurante: ${restaurantName}
+async function editImageWithAI(
+  apiKey: string,
+  restaurantName: string,
+  item: { name: string; description: string | null; photo_url: string | null }
+): Promise<string> {
+  // Fetch the original image and convert to base64 for the API
+  const imgRes = await fetch(item.photo_url!);
+  const imgBlob = await imgRes.blob();
+  const arrayBuffer = await imgBlob.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  const mimeType = imgBlob.type || "image/jpeg";
+
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "gpt-image-1",
+      prompt: buildEditPrompt(restaurantName, item),
+      n: 1,
+      size: "1024x1024",
+      quality: "high",
+      // Pass the source image as reference
+      image: [{ type: "input_image", image_url: `data:${mimeType};base64,${base64}` }],
+    }),
+  });
+  const data = await res.json();
+
+  // gpt-image-1 returns base64 image, not a URL
+  if (data.error) {
+    // Fall back to DALL-E 3 if gpt-image-1 fails (e.g. not available on current plan)
+    console.warn("gpt-image-1 failed, falling back to DALL-E 3:", data.error.message);
+    return generateImageFromText(apiKey, restaurantName, item);
+  }
+
+  // Convert base64 response back to a data URL for immediate use
+  const b64Image = data.data[0].b64_json as string;
+  return `data:image/png;base64,${b64Image}`;
+}
+
+// ─── Copy generation ─────────────────────────────────────────────────────────
+
+async function generateCopy(
+  apiKey: string,
+  restaurantName: string,
+  item: { name: string; description: string | null; price: number }
+): Promise<{ primaryText?: string; headline?: string }> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: buildCopyPrompt(restaurantName, item) }],
+      response_format: { type: "json_object" },
+      max_tokens: 250,
+    }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(`Erro GPT: ${data.error.message}`);
+  return JSON.parse(data.choices[0].message.content);
+}
+
+// ─── Prompts ──────────────────────────────────────────────────────────────────
+
+function buildDallePrompt(
+  restaurantName: string,
+  item: { name: string; description: string | null }
+): string {
+  return `Você é um especialista em marketing gastronômico e design de anúncios para Meta Ads.
+
+Crie uma fotografia publicitária profissional do prato abaixo para o restaurante "${restaurantName}":
+
 Prato: ${item.name}
 ${item.description ? `Descrição: ${item.description}` : ""}
-Preço: R$ ${Number(item.price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
 
-Retorne APENAS um JSON com:
-{
-  "primaryText": "texto principal em português brasileiro, máximo 120 caracteres, apetitoso e com call-to-action direto",
-  "headline": "título em português, máximo 38 caracteres, chamativo e direto"
+DIRETRIZES VISUAIS:
+- Realce texturas, brilho, crocância, suculência e frescor do alimento
+- Faça parecer recém-preparado
+- Utilize iluminação gastronômica premium com profundidade e foco profissional
+- Destaque os ingredientes mais apetitosos
+- Adicione vapor ou efeitos sutis de calor quando apropriado
+- Estilo visual semelhante a campanhas premium de delivery
+- Aparência extremamente realista, priorize impacto visual e desejo de consumo
+- Fundo escuro (mármore ou madeira rústica), composição quadrada 1:1
+- Sem texto, sem logos, sem marcas d'água`;
 }
 
-Seja criativo, desperte desejo pelo prato e use call-to-action. Emojis são permitidos.`;
+function buildEditPrompt(
+  restaurantName: string,
+  item: { name: string; description: string | null }
+): string {
+  return `Você é um especialista em marketing gastronômico para Meta Ads do restaurante "${restaurantName}".
+
+Transforme esta foto do prato "${item.name}" em um anúncio altamente persuasivo para delivery.
+${item.description ? `Descrição do prato: ${item.description}` : ""}
+
+DIRETRIZES VISUAIS:
+- Utilize a foto enviada como elemento principal, mantendo o alimento fiel ao original
+- Realce texturas, brilho, crocância, suculência e frescor
+- Faça parecer recém-preparado com iluminação gastronômica premium
+- Crie profundidade, foco profissional e destaque os ingredientes mais apetitosos
+- Adicione vapor ou efeitos sutis de calor se apropriado
+- Estilo visual semelhante a campanhas premium de delivery
+- Aparência extremamente realista
+- Sem texto, sem logos, sem marcas d'água`;
+}
+
+function buildCopyPrompt(
+  restaurantName: string,
+  item: { name: string; description: string | null; price: number }
+): string {
+  return `Você é um especialista em marketing gastronômico e design de anúncios para Meta Ads.
+
+Sua tarefa é criar o copy de um anúncio altamente persuasivo para delivery.
+
+INFORMAÇÕES DO PRODUTO:
+Nome do prato: ${item.name}
+Descrição: ${item.description || "não informada"}
+Restaurante: ${restaurantName}
+Preço: R$ ${Number(item.price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+
+OBJETIVO: Gerar desejo imediato, despertar fome e aumentar a taxa de pedidos.
+
+DIRETRIZES DE COPY:
+Analise automaticamente o tipo de prato e adapte a comunicação:
+- Se for hambúrguer: destaque suculência e tamanho generoso
+- Se for pizza: destaque o queijo e variedade de sabores
+- Se for sushi: destaque frescor e sofisticação
+- Se for sobremesa: destaque indulgência e prazer
+- Se for prato executivo: destaque praticidade e refeição completa
+- Se for frango/assados: destaque crocância e tempero
+- Nunca use textos genéricos — adapte ao alimento
+
+RETORNE APENAS este JSON:
+{
+  "primaryText": "texto principal em português, máximo 120 caracteres, desperta desejo e termina com call-to-action. Emojis permitidos.",
+  "headline": "título em português, máximo 38 caracteres, impactante e direto"
+}`;
 }
