@@ -210,12 +210,12 @@ export const updateMetaCampaignStatus = createServerFn({ method: "POST" })
 
     const { data: campaign } = await supabase
       .from("campaigns")
-      .select("meta_campaign_id, restaurants(meta_access_token)")
+      .select("meta_campaign_id, restaurant_id")
       .eq("id", data.campaignId)
       .single();
 
     if (!campaign?.meta_campaign_id) throw new Error("Campanha não publicada no Meta.");
-    const accessToken = (campaign.restaurants as any)?.meta_access_token;
+    const accessToken = await getMetaAccessToken(supabase, campaign.restaurant_id);
     if (!accessToken) throw new Error("Meta não conectado.");
 
     const res = await fetch(`${META_GRAPH_URL}/${campaign.meta_campaign_id}`, {
@@ -244,11 +244,12 @@ export const syncMetaInsights = createServerFn({ method: "POST" })
 
     const { data: restaurant } = await supabase
       .from("restaurants")
-      .select("meta_access_token, meta_ad_account_id")
+      .select("meta_ad_account_id")
       .eq("id", data.restaurantId)
       .single();
 
-    if (!restaurant?.meta_access_token) throw new Error("Meta não conectado.");
+    const accessToken = await getMetaAccessToken(supabase, data.restaurantId);
+    if (!accessToken || !restaurant?.meta_ad_account_id) throw new Error("Meta não conectado.");
 
     const { data: campaigns } = await supabase
       .from("campaigns")
@@ -272,7 +273,7 @@ export const syncMetaInsights = createServerFn({ method: "POST" })
             date_preset: "last_90d",
             time_increment: "1",
             limit: "100",
-            access_token: restaurant.meta_access_token,
+            access_token: accessToken,
           })
       );
       const insightsData = await insightsRes.json();
@@ -375,7 +376,7 @@ export const publishMetaAd = createServerFn({ method: "POST" })
 
     if (!campaign) throw new Error("Campanha não encontrada.");
     const restaurant = campaign.restaurants;
-    const accessToken = restaurant.meta_access_token;
+    const accessToken = await getMetaAccessToken(supabase, restaurant.id);
     const adAccountId = restaurant.meta_ad_account_id;
     const pageId = restaurant.meta_page_id;
 
