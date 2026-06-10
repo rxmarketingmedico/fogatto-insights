@@ -80,13 +80,20 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
     }));
     const pagesData = await pagesResponse.json();
 
-    // 5. Update restaurant with access token
+    // 5. Store access token in secrets table (service_role only) and mark restaurant as connected
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: secretError } = await supabaseAdmin
+      .from("restaurant_secrets")
+      .upsert({
+        restaurant_id: data.state,
+        meta_access_token: accessToken,
+        updated_at: new Date().toISOString(),
+      });
+    if (secretError) throw secretError;
+
     const { error: updateError } = await supabase
       .from("restaurants")
-      .update({
-        meta_access_token: accessToken,
-        meta_connected_at: new Date().toISOString(),
-      })
+      .update({ meta_connected_at: new Date().toISOString() })
       .eq("id", data.state);
 
     if (updateError) throw updateError;
@@ -127,10 +134,15 @@ export const disconnectMetaAds = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin
+      .from("restaurant_secrets")
+      .delete()
+      .eq("restaurant_id", data.restaurantId);
+
     const { error } = await supabase
       .from("restaurants")
       .update({
-        meta_access_token: null,
         meta_ad_account_id: null,
         meta_page_id: null,
         meta_connected_at: null,
@@ -152,20 +164,15 @@ export const searchMetaLocations = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("meta_access_token")
-      .eq("id", data.restaurantId)
-      .single();
-
-    if (!restaurant?.meta_access_token) return [];
+    const accessToken = await getMetaAccessToken(supabase, data.restaurantId);
+    if (!accessToken) return [];
 
     const res = await fetch(`${META_GRAPH_URL}/search?` + new URLSearchParams({
       type: "adgeolocation",
       q: data.query,
       location_types: "city",
       country_code: "BR",
-      access_token: restaurant.meta_access_token,
+      access_token: accessToken,
     }));
     const result = await res.json();
     if (result.error) return [];
