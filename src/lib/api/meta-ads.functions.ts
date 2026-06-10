@@ -5,12 +5,13 @@ import { z } from "zod";
 const META_VERSION = "v21.0";
 const META_AUTH_URL = `https://www.facebook.com/${META_VERSION}/dialog/oauth`;
 const META_GRAPH_URL = `https://graph.facebook.com/${META_VERSION}`;
+const META_APP_ID_FALLBACK = "1676842143509066";
 
 export const getMetaAuthUrl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
   .handler(async ({ data }) => {
-    const clientId = process.env.META_APP_ID;
+    const clientId = process.env.META_APP_ID || META_APP_ID_FALLBACK;
     const redirectUri = `${process.env.APP_URL_FOR_META}/meta-callback`;
 
     if (!clientId) throw new Error("META_APP_ID não configurado.");
@@ -36,7 +37,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const clientId = process.env.META_APP_ID;
+    const clientId = process.env.META_APP_ID || META_APP_ID_FALLBACK;
     const clientSecret = process.env.META_APP_SECRET;
     const redirectUri = `${process.env.APP_URL_FOR_META}/meta-callback`;
 
