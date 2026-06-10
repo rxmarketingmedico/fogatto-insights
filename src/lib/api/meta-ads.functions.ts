@@ -11,7 +11,7 @@ export const getMetaAuthUrl = createServerFn({ method: "GET" })
   .inputValidator((data: any) => z.object({ restaurantId: z.string() }).parse(data))
   .handler(async ({ data }) => {
     const clientId = process.env.META_APP_ID;
-    const redirectUri = `${process.env.VITE_APP_URL}/app/settings/meta-callback`;
+    const redirectUri = `${process.env.APP_URL_FOR_META || process.env.VITE_APP_URL}/app/settings/meta-callback`;
     
     if (!clientId) throw new Error("META_APP_ID não configurado.");
 
@@ -38,7 +38,7 @@ export const handleMetaCallback = createServerFn({ method: "POST" })
     const { supabase } = context;
     const clientId = process.env.META_APP_ID;
     const clientSecret = process.env.META_APP_SECRET;
-    const redirectUri = `${process.env.VITE_APP_URL}/app/settings/meta-callback`;
+    const redirectUri = `${process.env.APP_URL_FOR_META || process.env.VITE_APP_URL}/app/settings/meta-callback`;
 
     if (!clientId || !clientSecret) throw new Error("Meta Ads não configurado no servidor.");
 
