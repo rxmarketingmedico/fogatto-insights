@@ -55,7 +55,9 @@ function AuthPage() {
             whatsapp_number: "00000000000" // Placeholder to be updated in onboarding
           });
           
-          if (dbError) console.error("Error creating restaurant:", dbError);
+          if (dbError) {
+            console.error("Error creating restaurant manually:", dbError);
+          }
         }
 
         alert("Conta criada! Verifique seu email para confirmar e acessar seu painel.");
