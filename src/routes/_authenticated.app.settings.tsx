@@ -1,10 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRestaurant, updateRestaurant } from "@/lib/api/restaurant.functions";
-import { getMetaAuthUrl, connectMetaAds, disconnectMetaAds } from "@/lib/api/meta-ads.functions";
+import {
+  getRestaurant,
+  updateRestaurant,
+} from "@/lib/api/restaurant.functions";
+import {
+  getMetaAuthUrl,
+  connectMetaAds,
+  disconnectMetaAds,
+} from "@/lib/api/meta-ads.functions";
 import { useState, useEffect } from "react";
-import { Facebook, CheckCircle2, AlertCircle } from "lucide-react";
+import { Facebook, CheckCircle2, AlertCircle, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/settings")({
@@ -20,14 +27,17 @@ function SettingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [metaSelection, setMetaSelection] = useState<{ adAccounts: any[]; pages: any[] } | null>(null);
+  const [metaSelection, setMetaSelection] = useState<{
+    adAccounts: any[];
+    pages: any[];
+  } | null>(null);
   const [selectedAdAccount, setSelectedAdAccount] = useState("");
   const [selectedPage, setSelectedPage] = useState("");
 
   const { data: restaurant, isLoading } = useQuery({
     queryKey: ["restaurant"],
     queryFn: () => fetchRestaurant(),
-    retry: false
+    retry: false,
   });
 
   const [formData, setFormData] = useState({
@@ -243,12 +253,21 @@ function SettingsPage() {
             </div>
             
             {restaurant?.meta_access_token ? (
-              <button 
-                onClick={handleDisconnectMeta}
-                className="text-sm text-destructive font-medium hover:underline"
-              >
-                Desconectar
-              </button>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={handleConnectMeta}
+                  className="flex items-center gap-2 text-primary text-sm font-medium hover:underline"
+                >
+                  <RefreshCcw size={14} />
+                  Reconectar
+                </button>
+                <button
+                  onClick={handleDisconnectMeta}
+                  className="text-sm text-destructive font-medium hover:underline"
+                >
+                  Desconectar
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleConnectMeta}
