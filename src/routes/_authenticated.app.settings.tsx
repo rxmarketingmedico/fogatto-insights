@@ -59,15 +59,20 @@ function SettingsPage() {
   }, [restaurant]);
 
   useEffect(() => {
-    // Check for callback result from popup
-    const interval = setInterval(() => {
-      const result = localStorage.getItem("meta_callback_result");
-      if (result) {
+    // Check for callback result from storage event (more reliable than interval)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "meta_callback_result" && e.newValue) {
         localStorage.removeItem("meta_callback_result");
-        setMetaSelection(JSON.parse(result));
+        const result = JSON.parse(e.newValue);
+        if (result.error) {
+          toast.error(`Erro na conexão: ${result.error}`);
+        } else {
+          setMetaSelection(result);
+        }
       }
-    }, 500);
-    return () => clearInterval(interval);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const handleConnectMeta = async () => {
