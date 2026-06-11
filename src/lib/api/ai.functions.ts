@@ -230,12 +230,12 @@ export const generateVideoScript = createServerFn({ method: "POST" })
 
     const [{ data: restaurant }, { data: item }] = await Promise.all([
       supabase.from("restaurants").select("name").eq("id", data.restaurantId).single(),
-      supabase.from("menu_items").select("name, description, category").eq("id", data.menuItemId).single(),
+      supabase.from("menu_items").select("*").eq("id", data.menuItemId).single(),
     ]);
 
-    if (!restaurant || !item) throw new Error("Dados não encontrados.");
+    if (!restaurant || !item || ("error" in item)) throw new Error("Dados não encontrados.");
 
-    const prompt = buildVideoScriptPrompt(restaurant.name, item, data.template);
+    const prompt = buildVideoScriptPrompt(restaurant.name, item as any, data.template);
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
