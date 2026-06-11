@@ -9,6 +9,7 @@ import {
   upsertAdSpend,
   deleteAdSpend,
   getCampaignRoas,
+  getIfoodClicks,
 } from "@/lib/api/dashboard.functions";
 import { publishMetaAd, searchMetaLocations, syncMetaInsights, updateMetaCampaignStatus } from "@/lib/api/meta-ads.functions";
 import { getMenuItemsForAd, generateAdCreative } from "@/lib/api/ai.functions";
@@ -38,6 +39,8 @@ import {
   Upload,
   Link,
   ImageIcon,
+  Copy,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -231,6 +234,7 @@ function CampaignsPage() {
   const fetchCampaigns = useServerFn(getCampaigns);
   const fetchRoas = useServerFn(getCampaignRoas);
   const fetchSpend = useServerFn(getAdSpend);
+  const fetchIfoodClicks = useServerFn(getIfoodClicks);
   const saveCampaign = useServerFn(upsertCampaign);
   const saveSpend = useServerFn(upsertAdSpend);
   const removeSpend = useServerFn(deleteAdSpend);
@@ -246,6 +250,8 @@ function CampaignsPage() {
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [showSpendForm, setShowSpendForm] = useState(false);
   const [showMetaPublishModal, setShowMetaPublishModal] = useState<any>(null);
+  const [ifoodLinkCampaign, setIfoodLinkCampaign] = useState<any>(null);
+  const [copiedIfoodLink, setCopiedIfoodLink] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [wizard, setWizard] = useState<WizardState>(DEFAULT_WIZARD);
   const [locationResults, setLocationResults] = useState<Array<{ key: string; name: string; region: string }>>([]);
@@ -280,6 +286,12 @@ function CampaignsPage() {
   const { data: menuItems } = useQuery({
     queryKey: ["menu-items-for-ad", restaurant?.id],
     queryFn: () => fetchMenuItems({ data: { restaurantId: restaurant!.id } }),
+    enabled: !!restaurant,
+  });
+
+  const { data: ifoodClicks } = useQuery({
+    queryKey: ["ifood-clicks", restaurant?.id],
+    queryFn: () => fetchIfoodClicks({ data: { restaurantId: restaurant!.id } }),
     enabled: !!restaurant,
   });
 
@@ -587,56 +599,73 @@ function CampaignsPage() {
                     {c.roas !== null ? `${c.roas.toFixed(2)}x` : "—"}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {(c as any).meta_ad_id ? (
-                      <div className="flex items-center justify-end gap-2">
-                        {(c as any).meta_status === "active" ? (
-                          <>
-                            <span className="text-[10px] font-bold text-green-600 border border-green-500 bg-green-50 dark:bg-green-950/20 px-1.5 py-0.5 rounded uppercase">
-                              Ativo
-                            </span>
-                            <button
-                              onClick={() => statusMutation.mutate({ campaignId: c.id, status: "PAUSED" })}
-                              disabled={togglingId === c.id}
-                              className="flex items-center gap-1 text-xs text-muted-foreground border rounded-md px-2 py-1 hover:bg-accent disabled:opacity-50"
-                              title="Pausar campanha"
-                            >
-                              {togglingId === c.id
-                                ? <RefreshCw size={11} className="animate-spin" />
-                                : <Pause size={11} />}
-                              Pausar
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-[10px] font-bold text-muted-foreground border px-1.5 py-0.5 rounded uppercase">
-                              Pausado
-                            </span>
-                            <button
-                              onClick={() => statusMutation.mutate({ campaignId: c.id, status: "ACTIVE" })}
-                              disabled={togglingId === c.id}
-                              className="flex items-center gap-1 text-xs font-semibold text-green-600 border border-green-500 rounded-md px-2 py-1 hover:bg-green-50 dark:hover:bg-green-950/20 disabled:opacity-50"
-                              title="Ativar campanha"
-                            >
-                              {togglingId === c.id
-                                ? <RefreshCw size={11} className="animate-spin" />
-                                : <Play size={11} />}
-                              Ativar
-                            </button>
-                          </>
-                        )}
-                        <Facebook size={13} className="text-[#1877F2] shrink-0" />
-                      </div>
-                    ) : (
-                      restaurant?.meta_connected_at && (
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      {(restaurant as any)?.ifood_url && (
                         <button
-                          onClick={() => openWizard(c)}
-                          className="flex items-center gap-1.5 ml-auto text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+                          onClick={() => { setIfoodLinkCampaign(c); setCopiedIfoodLink(false); }}
+                          className="flex items-center gap-1 text-xs font-medium text-orange-600 border border-orange-300 bg-orange-50 dark:bg-orange-950/20 px-2 py-1 rounded-md hover:opacity-80"
+                          title="Link rastreável para iFood"
                         >
-                          <Facebook size={12} />
-                          Publicar no Meta
+                          <Link size={11} />
+                          iFood
+                          {ifoodClicks?.[c.id] ? (
+                            <span className="ml-0.5 bg-orange-500 text-white rounded-full px-1 text-[9px] font-bold leading-4">
+                              {ifoodClicks[c.id]}
+                            </span>
+                          ) : null}
                         </button>
-                      )
-                    )}
+                      )}
+                      {(c as any).meta_ad_id ? (
+                        <>
+                          {(c as any).meta_status === "active" ? (
+                            <>
+                              <span className="text-[10px] font-bold text-green-600 border border-green-500 bg-green-50 dark:bg-green-950/20 px-1.5 py-0.5 rounded uppercase">
+                                Ativo
+                              </span>
+                              <button
+                                onClick={() => statusMutation.mutate({ campaignId: c.id, status: "PAUSED" })}
+                                disabled={togglingId === c.id}
+                                className="flex items-center gap-1 text-xs text-muted-foreground border rounded-md px-2 py-1 hover:bg-accent disabled:opacity-50"
+                                title="Pausar campanha"
+                              >
+                                {togglingId === c.id
+                                  ? <RefreshCw size={11} className="animate-spin" />
+                                  : <Pause size={11} />}
+                                Pausar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[10px] font-bold text-muted-foreground border px-1.5 py-0.5 rounded uppercase">
+                                Pausado
+                              </span>
+                              <button
+                                onClick={() => statusMutation.mutate({ campaignId: c.id, status: "ACTIVE" })}
+                                disabled={togglingId === c.id}
+                                className="flex items-center gap-1 text-xs font-semibold text-green-600 border border-green-500 rounded-md px-2 py-1 hover:bg-green-50 dark:hover:bg-green-950/20 disabled:opacity-50"
+                                title="Ativar campanha"
+                              >
+                                {togglingId === c.id
+                                  ? <RefreshCw size={11} className="animate-spin" />
+                                  : <Play size={11} />}
+                                Ativar
+                              </button>
+                            </>
+                          )}
+                          <Facebook size={13} className="text-[#1877F2] shrink-0" />
+                        </>
+                      ) : (
+                        restaurant?.meta_connected_at && (
+                          <button
+                            onClick={() => openWizard(c)}
+                            className="flex items-center gap-1.5 text-xs font-semibold bg-[#1877F2] text-white px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+                          >
+                            <Facebook size={12} />
+                            Publicar no Meta
+                          </button>
+                        )
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -812,6 +841,73 @@ function CampaignsPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* iFood Link Modal */}
+      {ifoodLinkCampaign && restaurant && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold text-base">Link rastreável — iFood</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{ifoodLinkCampaign.name}</p>
+              </div>
+              <button onClick={() => setIfoodLinkCampaign(null)} className="p-1 rounded hover:bg-accent">
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Use este link no seu anúncio do Meta Ads. Quando alguém clicar, o Fogatto registra o clique e redireciona para o iFood.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Link para copiar</label>
+              <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                <code className="flex-1 text-xs break-all text-foreground">
+                  {`${window.location.origin}/go/${(restaurant as any).slug}?cid=${ifoodLinkCampaign.id}&utm_source=meta&utm_medium=paid&utm_campaign=${ifoodLinkCampaign.utm_campaign}`}
+                </code>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/go/${(restaurant as any).slug}?cid=${ifoodLinkCampaign.id}&utm_source=meta&utm_medium=paid&utm_campaign=${ifoodLinkCampaign.utm_campaign}`;
+                    navigator.clipboard.writeText(url);
+                    setCopiedIfoodLink(true);
+                    setTimeout(() => setCopiedIfoodLink(false), 2000);
+                  }}
+                  className="shrink-0 p-1.5 rounded-md hover:bg-accent transition-colors"
+                  title="Copiar link"
+                >
+                  {copiedIfoodLink ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {ifoodClicks?.[ifoodLinkCampaign.id] !== undefined && (
+              <div className="flex items-center gap-2 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 px-3 py-2 text-sm">
+                <MousePointerClick size={14} className="text-orange-500 shrink-0" />
+                <span className="font-semibold text-orange-700 dark:text-orange-300">
+                  {ifoodClicks[ifoodLinkCampaign.id]} clique{ifoodClicks[ifoodLinkCampaign.id] !== 1 ? "s" : ""} rastreados
+                </span>
+              </div>
+            )}
+
+            <div className="bg-muted/50 rounded-lg border px-3 py-2 text-xs text-muted-foreground space-y-1">
+              <p className="font-semibold">Como usar:</p>
+              <p>1. Copie o link acima</p>
+              <p>2. Cole como URL de destino no anúncio do Meta Ads</p>
+              <p>3. O Fogatto registra cada clique antes de redirecionar ao iFood</p>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setIfoodLinkCampaign(null)}
+                className="px-4 py-2 text-sm font-medium border rounded-lg hover:bg-accent"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

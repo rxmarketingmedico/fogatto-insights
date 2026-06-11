@@ -221,3 +221,24 @@ export const getCampaignRoas = createServerFn({ method: "GET" })
       return { ...c, spend, revenue, roas };
     });
   });
+
+export const getIfoodClicks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({ restaurantId: z.string().uuid() }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: clicks, error } = await supabase
+      .from("link_clicks")
+      .select("campaign_id")
+      .eq("restaurant_id", data.restaurantId);
+
+    if (error) throw error;
+
+    return (clicks ?? []).reduce<Record<string, number>>((acc, row) => {
+      const key = row.campaign_id ?? "__none__";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+  });

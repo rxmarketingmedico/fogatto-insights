@@ -24,6 +24,7 @@ export const updateRestaurant = createServerFn({ method: "POST" })
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
       whatsapp_number: z.string().min(10),
       logo_url: z.string().optional().nullable(),
+      ifood_url: z.string().url().optional().nullable().or(z.literal("")),
     }).parse(data)
   )
   .handler(async ({ data, context }) => {

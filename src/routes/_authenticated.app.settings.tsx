@@ -45,6 +45,7 @@ function SettingsPage() {
     slug: "",
     whatsapp_number: "",
     logo_url: "",
+    ifood_url: "",
   });
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function SettingsPage() {
         slug: restaurant.slug || "",
         whatsapp_number: restaurant.whatsapp_number || "",
         logo_url: restaurant.logo_url || "",
+        ifood_url: (restaurant as any).ifood_url || "",
       });
     }
   }, [restaurant]);
@@ -211,6 +213,20 @@ function SettingsPage() {
             onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
             placeholder="https://..."
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Link do iFood</label>
+          <input
+            className="w-full rounded-md border bg-background px-3 py-2"
+            value={formData.ifood_url}
+            onChange={(e) => setFormData({ ...formData, ifood_url: e.target.value })}
+            placeholder="https://www.ifood.com.br/delivery/..."
+            type="url"
+          />
+          <p className="text-xs text-muted-foreground">
+            Cole aqui o link do seu restaurante no iFood. O Fogatto vai gerar um link rastreável para suas campanhas.
+          </p>
         </div>
 
         <button
