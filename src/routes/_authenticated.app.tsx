@@ -21,17 +21,17 @@ function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-screen" style={{ background: "var(--color-ink-1000, #0C0A08)", color: "var(--color-bone, #F7F2EA)" }}>
+    <div className="flex min-h-screen" style={{ background: "var(--color-background)", color: "var(--color-foreground)" }}>
       {/* Sidebar */}
       <aside
         className="w-60 hidden md:flex flex-col"
         style={{
-          background: "var(--color-ink-900, #14100D)",
-          borderRight: "1px solid oklch(0.617 0.196 38.5 / 0.14)",
+          background: "var(--color-sidebar)",
+          borderRight: "1px solid var(--color-sidebar-border)",
         }}
       >
         {/* Logo */}
-        <div className="p-6" style={{ borderBottom: "1px solid oklch(0.617 0.196 38.5 / 0.14)" }}>
+        <div className="p-6" style={{ borderBottom: "1px solid var(--color-sidebar-border)" }}>
           <FogattoLogo size="md" />
         </div>
 
@@ -46,24 +46,33 @@ function AppLayout() {
         </nav>
 
         {/* Theme toggle + Sign out */}
-        <div className="p-3" style={{ borderTop: "1px solid oklch(0.617 0.196 38.5 / 0.14)" }}>
+        <div className="p-3 flex flex-col gap-1" style={{ borderTop: "1px solid var(--color-sidebar-border)" }}>
           <ThemeToggle />
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors"
             style={{
-              color: "var(--color-bone-3, #9D9182)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--color-muted-foreground)",
               fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
               fontSize: 14,
               fontWeight: 500,
+              transition: "all 140ms ease",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.194 0.02 47)";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-bone, #F7F2EA)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-foreground)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-bone-3, #9D9182)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--color-muted-foreground)";
             }}
           >
             <LogOut size={18} />
@@ -78,12 +87,11 @@ function AppLayout() {
         <header
           className="md:hidden flex items-center justify-between px-4 py-3"
           style={{
-            background: "var(--color-ink-900, #14100D)",
-            borderBottom: "1px solid oklch(0.617 0.196 38.5 / 0.14)",
+            background: "var(--color-sidebar)",
+            borderBottom: "1px solid var(--color-sidebar-border)",
           }}
         >
           <FogattoLogo size="sm" />
-          {/* Mobile menu could be added here */}
         </header>
 
         <main className="flex-1 overflow-y-auto">
@@ -123,7 +131,7 @@ function NavItem({
         textDecoration: "none",
         transition: "all 140ms ease",
         background: isActive ? "oklch(0.617 0.196 38.5 / 0.12)" : "transparent",
-        color: isActive ? "oklch(0.617 0.196 38.5)" : "oklch(0.642 0.021 77.8)",
+        color: isActive ? "oklch(0.617 0.196 38.5)" : "var(--color-muted-foreground)",
         boxShadow: isActive ? "inset 0 0 0 1px oklch(0.617 0.196 38.5 / 0.2)" : "none",
       }}
     >

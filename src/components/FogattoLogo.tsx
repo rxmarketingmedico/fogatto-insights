@@ -65,7 +65,7 @@ export function FogattoLogo({
     fontSize: wordmark,
     letterSpacing: "-0.04em",
     lineHeight: 1,
-    color: wordmarkColor ?? "var(--color-foreground, #F7F2EA)",
+    color: wordmarkColor ?? "var(--color-sidebar-foreground, currentColor)",
   };
 
   if (variant === "mark") {
