@@ -12,7 +12,7 @@ import {
   getIfoodClicks,
 } from "@/lib/api/dashboard.functions";
 import { publishMetaAd, searchMetaLocations, syncMetaInsights, updateMetaCampaignStatus } from "@/lib/api/meta-ads.functions";
-import { getMenuItemsForAd, generateAdCreative } from "@/lib/api/ai.functions";
+import { getMenuItemsForAd, generateAdCreative, generateVideoScript } from "@/lib/api/ai.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useRef } from "react";
 import {
@@ -41,6 +41,8 @@ import {
   ImageIcon,
   Copy,
   Check,
+  Clapperboard,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -81,7 +83,7 @@ type Objective = "OUTCOME_TRAFFIC" | "OUTCOME_SALES" | "OUTCOME_AWARENESS";
 type BudgetType = "daily" | "lifetime";
 type Gender = "all" | "male" | "female";
 
-type CreativeMode = "ai" | "upload" | "url";
+type CreativeMode = "ai" | "upload" | "url" | "script";
 
 interface AdSchedule {
   days: number[];      // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
@@ -109,6 +111,8 @@ interface WizardState {
   imageUrl: string;
   primaryText: string;
   headline: string;
+  scriptTemplate: string;
+  generatedScript: string;
 }
 
 const DEFAULT_WIZARD: WizardState = {
@@ -131,7 +135,16 @@ const DEFAULT_WIZARD: WizardState = {
   imageUrl: "",
   primaryText: "",
   headline: "",
+  scriptTemplate: "Produto em close",
+  generatedScript: "",
 };
+
+const VIDEO_TEMPLATES = [
+  { id: "Produto em close", emoji: "🎬", desc: "Close dramático no prato, slow motion" },
+  { id: "Bastidores", emoji: "👨‍🍳", desc: "Preparo na cozinha, ingredientes, montagem" },
+  { id: "Storytelling", emoji: "❤️", desc: "Narrativa emocional, momento de prazer" },
+  { id: "Promoção relâmpago", emoji: "⚡", desc: "Urgência, oferta limitada, CTA direto" },
+];
 
 const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -244,6 +257,7 @@ function CampaignsPage() {
   const updateStatus = useServerFn(updateMetaCampaignStatus);
   const fetchMenuItems = useServerFn(getMenuItemsForAd);
   const generateCreative = useServerFn(generateAdCreative);
+  const generateScript = useServerFn(generateVideoScript);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"roas" | "spend">("roas");
@@ -364,6 +378,18 @@ function CampaignsPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const scriptMutation = useMutation({
+    mutationFn: ({ menuItemId, template }: { menuItemId: string; template: string }) =>
+      generateScript({ data: { restaurantId: restaurant!.id, menuItemId, template } }),
+    onSuccess: (res: any) => {
+      setWizard(w => ({ ...w, generatedScript: res.script }));
+      toast.success("Roteiro gerado!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const [copiedScript, setCopiedScript] = useState(false);
+
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     try {
@@ -454,6 +480,7 @@ function CampaignsPage() {
       if (wizard.enableScheduling && wizard.schedules.length === 0) return false;
     }
     if (wizardStep === 4) {
+      if (wizard.creativeMode === "script") return false; // script mode is offline — no Meta publish
       if (!wizard.imageUrl || !wizard.primaryText || !wizard.headline) return false;
     }
     return true;
@@ -1319,15 +1346,16 @@ function CampaignsPage() {
                   {/* Mode tabs */}
                   <div className="flex gap-1 bg-muted rounded-lg p-1">
                     {([
-                      ["ai", Sparkles, "Gerar com IA"],
+                      ["ai", Sparkles, "Imagem IA"],
                       ["upload", Upload, "Upload"],
                       ["url", Link, "URL"],
+                      ["script", Clapperboard, "Roteiro IA"],
                     ] as const).map(([mode, Icon, label]) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setWizard(w => ({ ...w, creativeMode: mode }))}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
                           wizard.creativeMode === mode
                             ? "bg-background shadow-sm text-foreground"
                             : "text-muted-foreground hover:text-foreground"
@@ -1475,51 +1503,172 @@ function CampaignsPage() {
                     </div>
                   )}
 
-                  {/* Text fields — always visible */}
-                  <div className="space-y-3 pt-1">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Texto Principal</label>
-                      <textarea
-                        className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[80px] resize-none"
-                        value={wizard.primaryText}
-                        onChange={e => setWizard(w => ({ ...w, primaryText: e.target.value }))}
-                        placeholder="O melhor hambúrguer da cidade na sua porta. Peça agora! 🍔"
-                        maxLength={125}
-                      />
-                      <div className={`text-[10px] text-right ${wizard.primaryText.length >= 115 ? "text-destructive" : "text-muted-foreground"}`}>
-                        {wizard.primaryText.length}/125
+                  {/* Script mode */}
+                  {wizard.creativeMode === "script" && (
+                    <div className="space-y-4">
+                      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300">
+                        <p className="font-semibold mb-1">Como funciona:</p>
+                        <p>A IA gera um roteiro profissional para você gravar com o celular e subir como vídeo no Meta Ads.</p>
+                      </div>
+
+                      {/* Menu item selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Produto para o vídeo</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto pr-1">
+                          {!menuItems || menuItems.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-4 text-center">Nenhum item ativo no cardápio.</p>
+                          ) : (
+                            menuItems.map(item => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setWizard(w => ({ ...w, selectedMenuItemId: item.id, generatedScript: "" }))}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${
+                                  wizard.selectedMenuItemId === item.id
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border hover:border-muted-foreground/50 hover:bg-accent/40"
+                                }`}
+                              >
+                                {item.photo_url ? (
+                                  <img src={item.photo_url} alt={item.name} className="w-10 h-10 rounded-md object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <ImageIcon size={14} className="text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm truncate">{item.name}</p>
+                                  {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
+                                </div>
+                                {wizard.selectedMenuItemId === item.id && (
+                                  <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                  </div>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Template selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Estilo do vídeo</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {VIDEO_TEMPLATES.map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setWizard(w => ({ ...w, scriptTemplate: t.id, generatedScript: "" }))}
+                              className={`p-3 rounded-xl border-2 text-left transition-all ${
+                                wizard.scriptTemplate === t.id
+                                  ? "border-primary bg-primary/5"
+                                  : "border-border hover:border-muted-foreground/50"
+                              }`}
+                            >
+                              <span className="text-lg">{t.emoji}</span>
+                              <p className="text-xs font-semibold mt-1">{t.id}</p>
+                              <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Generate button */}
+                      <button
+                        type="button"
+                        onClick={() => wizard.selectedMenuItemId && scriptMutation.mutate({ menuItemId: wizard.selectedMenuItemId, template: wizard.scriptTemplate })}
+                        disabled={!wizard.selectedMenuItemId || scriptMutation.isPending}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                      >
+                        <Clapperboard size={15} className={scriptMutation.isPending ? "animate-pulse" : ""} />
+                        {scriptMutation.isPending ? "Gerando roteiro... (~15s)" : "Gerar Roteiro com IA"}
+                      </button>
+
+                      {/* Result */}
+                      {wizard.generatedScript && (
+                        <div className="border rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <FileText size={14} className="text-muted-foreground" />
+                              <span className="text-xs font-semibold">Roteiro gerado</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(wizard.generatedScript);
+                                setCopiedScript(true);
+                                setTimeout(() => setCopiedScript(false), 2000);
+                              }}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border hover:bg-background transition-colors"
+                            >
+                              {copiedScript ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                              {copiedScript ? "Copiado!" : "Copiar tudo"}
+                            </button>
+                          </div>
+                          <div className="p-4 max-h-72 overflow-y-auto">
+                            <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground">
+                              {wizard.generatedScript}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-muted/50 border rounded-lg p-3 text-xs text-muted-foreground">
+                        Após gerar o roteiro, grave o vídeo e volte ao wizard escolhendo <strong>Upload</strong> ou <strong>URL</strong> para publicar no Meta.
                       </div>
                     </div>
+                  )}
 
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">Título do Anúncio</label>
-                      <input
-                        className="w-full border rounded-md px-3 py-2 bg-background text-sm"
-                        value={wizard.headline}
-                        onChange={e => setWizard(w => ({ ...w, headline: e.target.value }))}
-                        placeholder="Peça agora com frete grátis!"
-                        maxLength={40}
-                      />
-                      <div className={`text-[10px] text-right ${wizard.headline.length >= 36 ? "text-destructive" : "text-muted-foreground"}`}>
-                        {wizard.headline.length}/40
+                  {/* Text fields + destination info — hidden in script mode */}
+                  {wizard.creativeMode !== "script" && (
+                    <>
+                      <div className="space-y-3 pt-1">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium">Texto Principal</label>
+                          <textarea
+                            className="w-full border rounded-md px-3 py-2 bg-background text-sm min-h-[80px] resize-none"
+                            value={wizard.primaryText}
+                            onChange={e => setWizard(w => ({ ...w, primaryText: e.target.value }))}
+                            placeholder="O melhor hambúrguer da cidade na sua porta. Peça agora! 🍔"
+                            maxLength={125}
+                          />
+                          <div className={`text-[10px] text-right ${wizard.primaryText.length >= 115 ? "text-destructive" : "text-muted-foreground"}`}>
+                            {wizard.primaryText.length}/125
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium">Título do Anúncio</label>
+                          <input
+                            className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+                            value={wizard.headline}
+                            onChange={e => setWizard(w => ({ ...w, headline: e.target.value }))}
+                            placeholder="Peça agora com frete grátis!"
+                            maxLength={40}
+                          />
+                          <div className={`text-[10px] text-right ${wizard.headline.length >= 36 ? "text-destructive" : "text-muted-foreground"}`}>
+                            {wizard.headline.length}/40
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
-                    <p className="font-semibold flex items-center gap-1.5">
-                      <ExternalLink size={11} /> Link de destino (automático):
-                    </p>
-                    <code className="break-all text-blue-600 dark:text-blue-400 text-[11px]">
-                      {restaurant?.slug
-                        ? `${window.location.origin}/r/${restaurant.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`
-                        : "Carregando..."}
-                    </code>
-                  </div>
+                      <div className="bg-muted/50 p-3 rounded-lg border text-xs space-y-1">
+                        <p className="font-semibold flex items-center gap-1.5">
+                          <ExternalLink size={11} /> Link de destino (automático):
+                        </p>
+                        <code className="break-all text-blue-600 dark:text-blue-400 text-[11px]">
+                          {restaurant?.slug
+                            ? `${window.location.origin}/r/${restaurant.slug}?utm_source=meta&utm_medium=paid&utm_campaign=${showMetaPublishModal.utm_campaign}`
+                            : "Carregando..."}
+                        </code>
+                      </div>
 
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300">
-                    A campanha será criada como <strong>PAUSADA</strong> no Meta para sua revisão antes de ativar.
-                  </div>
+                      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300">
+                        A campanha será criada como <strong>PAUSADA</strong> no Meta para sua revisão antes de ativar.
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1542,6 +1691,14 @@ function CampaignsPage() {
                   className="flex items-center gap-1.5 px-5 py-2 text-sm bg-[#1877F2] text-white rounded-md hover:opacity-90 font-medium"
                 >
                   Próximo <ChevronRight size={15} />
+                </button>
+              ) : wizard.creativeMode === "script" ? (
+                <button
+                  type="button"
+                  onClick={closeWizard}
+                  className="flex items-center gap-2 px-5 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 font-medium"
+                >
+                  Concluir
                 </button>
               ) : (
                 <button

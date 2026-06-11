@@ -207,6 +207,130 @@ DIRETRIZES VISUAIS:
 - Sem texto, sem logos, sem marcas d'água`;
 }
 
+// ─── Video Script generation ─────────────────────────────────────────────────
+
+export const generateVideoScript = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      restaurantId: z.string(),
+      menuItemId: z.string(),
+      template: z.string(),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Chave OpenAI não configurada. Adicione OPENAI_API_KEY nas configurações do Lovable."
+      );
+    }
+
+    const [{ data: restaurant }, { data: item }] = await Promise.all([
+      supabase.from("restaurants").select("name").eq("id", data.restaurantId).single(),
+      supabase.from("menu_items").select("name, description, category").eq("id", data.menuItemId).single(),
+    ]);
+
+    if (!restaurant || !item) throw new Error("Dados não encontrados.");
+
+    const prompt = buildVideoScriptPrompt(restaurant.name, item, data.template);
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1800,
+        temperature: 0.8,
+      }),
+    });
+    const result = await res.json();
+    if (result.error) throw new Error(`Erro GPT: ${result.error.message}`);
+    return { script: result.choices[0].message.content as string };
+  });
+
+function buildVideoScriptPrompt(
+  restaurantName: string,
+  item: { name: string; description: string | null; category?: string | null },
+  template: string
+): string {
+  return `Você é um diretor criativo especializado em anúncios para restaurantes locais.
+
+Sua tarefa é criar um roteiro de gravação para um anúncio em vídeo vertical (9:16) destinado ao Meta Ads.
+
+INFORMAÇÕES
+
+Restaurante: ${restaurantName}
+Produto: ${item.name}
+Descrição: ${item.description || "não informada"}
+Categoria: ${item.category || "prato principal"}
+Objetivo: gerar pedidos via delivery.
+Template escolhido: ${template}
+Público-alvo: clientes locais interessados em delivery.
+
+INSTRUÇÕES
+
+Analise o produto e adapte o roteiro para destacar os aspectos mais apetitosos e persuasivos.
+
+Retorne exatamente nos seguintes blocos:
+
+# CONCEITO DO ANÚNCIO
+
+Explique em poucas linhas qual emoção será explorada.
+
+# DURAÇÃO
+
+Informe a duração ideal do vídeo.
+
+# ROTEIRO DE GRAVAÇÃO
+
+Para cada cena informe:
+
+* Tempo
+* O que filmar
+* Enquadramento
+* Movimento de câmera
+* Texto na tela
+* Narração (se houver)
+
+# CHECKLIST DE CAPTAÇÃO
+
+Liste todos os takes necessários para gravar o anúncio.
+
+# COPY PRINCIPAL
+
+Gere a copy do anúncio.
+
+# HEADLINE
+
+Gere 3 opções.
+
+# CTA
+
+Gere 3 opções.
+
+# DICAS DE EDIÇÃO
+
+Sugira:
+
+* velocidade dos cortes
+* estilo visual
+* trilha recomendada
+* transições
+* efeitos de texto
+
+REGRAS
+
+* Priorize vídeos entre 10 e 20 segundos.
+* O vídeo deve parecer um anúncio profissional.
+* As cenas devem ser fáceis de gravar com celular.
+* Não crie cenas impossíveis para restaurantes comuns.
+* Adapte o roteiro automaticamente ao tipo de prato.`;
+}
+
 function buildCopyPrompt(
   restaurantName: string,
   item: { name: string; description: string | null; price: number }
