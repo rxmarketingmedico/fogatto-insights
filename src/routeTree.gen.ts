@@ -23,6 +23,7 @@ import { Route as AuthenticatedAppOrdersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
 import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated.app.customers'
 import { Route as AuthenticatedAppCampaignsRouteImport } from './routes/_authenticated.app.campaigns'
+import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated.app.audit'
 
 const MetaCallbackRoute = MetaCallbackRouteImport.update({
   id: '/meta-callback',
@@ -96,6 +97,11 @@ const AuthenticatedAppCampaignsRoute =
     path: '/campaigns',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppAuditRoute = AuthenticatedAppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/go/$slug': typeof GoSlugRoute
   '/r/$slug': typeof RSlugRoute
+  '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/go/$slug': typeof GoSlugRoute
   '/r/$slug': typeof RSlugRoute
+  '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/menu': typeof AuthenticatedAppMenuRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/go/$slug': typeof GoSlugRoute
   '/r/$slug': typeof RSlugRoute
+  '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/campaigns': typeof AuthenticatedAppCampaignsRoute
   '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRoute
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/go/$slug'
     | '/r/$slug'
+    | '/app/audit'
     | '/app/campaigns'
     | '/app/customers'
     | '/app/menu'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/go/$slug'
     | '/r/$slug'
+    | '/app/audit'
     | '/app/campaigns'
     | '/app/customers'
     | '/app/menu'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/go/$slug'
     | '/r/$slug'
+    | '/_authenticated/app/audit'
     | '/_authenticated/app/campaigns'
     | '/_authenticated/app/customers'
     | '/_authenticated/app/menu'
@@ -300,10 +312,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCampaignsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/audit': {
+      id: '/_authenticated/app/audit'
+      path: '/audit'
+      fullPath: '/app/audit'
+      preLoaderRoute: typeof AuthenticatedAppAuditRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppCampaignsRoute: typeof AuthenticatedAppCampaignsRoute
   AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRoute
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
@@ -313,6 +333,7 @@ interface AuthenticatedAppRouteChildren {
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppCampaignsRoute: AuthenticatedAppCampaignsRoute,
   AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRoute,
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
