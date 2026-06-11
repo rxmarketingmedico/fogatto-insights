@@ -30,8 +30,14 @@ function DashboardIndex() {
   });
 
   useEffect(() => {
-    if (!loadingRestaurant && !restaurant) {
+    if (loadingRestaurant) return;
+    if (!restaurant) {
       navigate({ to: "/app/settings" });
+      return;
+    }
+    // New user — redirect to onboarding
+    if (restaurant.whatsapp_number === "00000000000") {
+      navigate({ to: "/onboarding" });
     }
   }, [restaurant, loadingRestaurant, navigate]);
 
