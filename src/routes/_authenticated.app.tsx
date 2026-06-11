@@ -41,6 +41,7 @@ function AppLayout() {
           <NavItem to="/app/menu" icon={<Utensils size={18} />} label="Cardápio" />
           <NavItem to="/app/campaigns" icon={<Megaphone size={18} />} label="Campanhas" />
           <NavItem to="/app/orders" icon={<ShoppingBag size={18} />} label="Pedidos" />
+          <NavItem to="/app/audit" icon={<Users size={18} />} label="Auditoria" />
           <NavItem to="/app/customers" icon={<Users size={18} />} label="Clientes" />
           <NavItem to="/app/settings" icon={<Settings size={18} />} label="Configurações" />
         </nav>

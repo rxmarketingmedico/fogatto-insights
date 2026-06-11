@@ -52,11 +52,12 @@ function DashboardIndex() {
   });
 
   // Attribution breakdown from raw orders
-  const bySource = (stats?.orders ?? []).reduce<Record<string, { orders: number; revenue: number }>>((acc, o) => {
+  const bySource = (stats?.orders ?? []).reduce<Record<string, { orders: number; revenue: number; paidRevenue: number }>>((acc, o) => {
     const key = [o.utm_source || "direto", o.utm_campaign || "-"].join(" / ");
-    if (!acc[key]) acc[key] = { orders: 0, revenue: 0 };
+    if (!acc[key]) acc[key] = { orders: 0, revenue: 0, paidRevenue: 0 };
     acc[key].orders += 1;
     acc[key].revenue += Number(o.total);
+    if (o.status === "paid") acc[key].paidRevenue += Number(o.total);
     return acc;
   }, {});
 
@@ -131,7 +132,8 @@ function DashboardIndex() {
               <tr>
                 <th className="px-6 py-3 text-left">Origem</th>
                 <th className="px-6 py-3 text-right">Pedidos</th>
-                <th className="px-6 py-3 text-right">Receita</th>
+                <th className="px-6 py-3 text-right">Receita Total</th>
+                <th className="px-6 py-3 text-right">Receita Paga</th>
                 <th className="px-6 py-3 text-right">% do total</th>
               </tr>
             </thead>
@@ -140,8 +142,11 @@ function DashboardIndex() {
                 <tr key={key} className="hover:bg-accent/40">
                   <td className="px-6 py-3 font-medium">{key}</td>
                   <td className="px-6 py-3 text-right tabular-nums">{val.orders}</td>
-                  <td className="px-6 py-3 text-right tabular-nums font-semibold text-primary">
+                  <td className="px-6 py-3 text-right tabular-nums font-semibold">
                     R$ {val.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-3 text-right tabular-nums font-semibold text-primary">
+                    R$ {val.paidRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-3 text-right tabular-nums text-muted-foreground">
                     {stats?.totalRevenue ? ((val.revenue / stats.totalRevenue) * 100).toFixed(1) : "0"}%

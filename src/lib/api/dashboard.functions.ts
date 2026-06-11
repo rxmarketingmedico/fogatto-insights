@@ -15,7 +15,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const { supabase } = context;
     let query = supabase
       .from("orders")
-      .select("total, created_at, utm_source, utm_campaign")
+      .select("total, created_at, utm_source, utm_campaign, status")
       .eq("restaurant_id", data.restaurantId);
 
     if (data.from) query = query.gte("created_at", data.from);
