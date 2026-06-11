@@ -168,6 +168,57 @@ export type Database = {
           },
         ]
       }
+      link_clicks: {
+        Row: {
+          campaign_id: string | null
+          clicked_at: string
+          destination: string
+          id: string
+          restaurant_id: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          clicked_at?: string
+          destination?: string
+          id?: string
+          restaurant_id: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          clicked_at?: string
+          destination?: string
+          id?: string
+          restaurant_id?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "link_clicks_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           active: boolean
@@ -350,6 +401,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          ifood_url: string | null
           logo_url: string | null
           meta_ad_account_id: string | null
           meta_connected_at: string | null
@@ -363,6 +415,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          ifood_url?: string | null
           logo_url?: string | null
           meta_ad_account_id?: string | null
           meta_connected_at?: string | null
@@ -376,6 +429,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          ifood_url?: string | null
           logo_url?: string | null
           meta_ad_account_id?: string | null
           meta_connected_at?: string | null
