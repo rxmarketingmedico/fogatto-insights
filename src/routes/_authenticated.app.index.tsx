@@ -102,9 +102,29 @@ function DashboardIndex() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">{restaurant.name}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Visão geral do seu negócio</p>
+          {restaurants && restaurants.length > 1 && (
+            <div className="flex items-center gap-2 pt-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase">Restaurante ativo</label>
+              <select
+                value={restaurant.id}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  localStorage.setItem("activeRestaurantId", id);
+                  setSelectedId(id);
+                }}
+                className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {restaurants.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.slug})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div className="flex gap-1 bg-muted rounded-lg p-1 self-start sm:self-auto">
           {PERIODS.map(p => (
