@@ -20,13 +20,22 @@ const PERIODS = [
 
 function DashboardIndex() {
   const fetchRestaurant = useServerFn(getRestaurant);
+  const fetchRestaurants = useServerFn(listRestaurants);
   const fetchStats = useServerFn(getDashboardStats);
   const navigate = useNavigate();
   const [periodDays, setPeriodDays] = useState(30);
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem("activeRestaurantId") : null
+  );
+
+  const { data: restaurants } = useQuery({
+    queryKey: ["restaurants-list"],
+    queryFn: () => fetchRestaurants(),
+  });
 
   const { data: restaurant, isLoading: loadingRestaurant } = useQuery({
-    queryKey: ["restaurant"],
-    queryFn: () => fetchRestaurant(),
+    queryKey: ["restaurant", selectedId],
+    queryFn: () => fetchRestaurant({ data: selectedId ? { id: selectedId } : {} }),
   });
 
   useEffect(() => {
