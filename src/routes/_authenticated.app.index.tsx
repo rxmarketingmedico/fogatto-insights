@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { getRestaurant } from "@/lib/api/restaurant.functions";
+import { getRestaurant, listRestaurants } from "@/lib/api/restaurant.functions";
 import { getDashboardStats } from "@/lib/api/dashboard.functions";
 import { useEffect, useState } from "react";
 import { Copy, ExternalLink } from "lucide-react";
