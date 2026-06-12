@@ -122,7 +122,7 @@ function DashboardIndex() {
             className="w-48 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">Todas as Campanhas</option>
-            {campaigns.map(c => <option key={c} value={c}>{c}</option>)}
+            {campaigns.map(c => <option key={c || "empty"} value={c || ""}>{c}</option>)}
           </select>
         </div>
         <div className="space-y-1.5">
@@ -133,7 +133,7 @@ function DashboardIndex() {
             className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">Todos os Status</option>
-            {statuses.map(s => <option key={s} value={s}>{s === 'paid' ? 'Pago' : s === 'canceled' ? 'Cancelado' : s}</option>)}
+            {statuses.map(s => <option key={s || "empty"} value={s || ""}>{s === 'paid' ? 'Pago' : s === 'canceled' ? 'Cancelado' : s}</option>)}
           </select>
         </div>
         <div className="flex-1" />
