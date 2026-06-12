@@ -45,21 +45,27 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
 export const getOrders = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: any) => 
-    z.object({ 
+  .inputValidator((data: any) =>
+    z.object({
       restaurantId: z.string().uuid(),
-      limit: z.number().default(50)
+      limit: z.number().default(200),
+      from: z.string().optional(),
+      to: z.string().optional(),
     }).parse(data)
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from("orders")
       .select("*, customers(name, phone)")
       .eq("restaurant_id", data.restaurantId)
       .order("created_at", { ascending: false })
       .limit(data.limit);
 
+    if (data.from) query = query.gte("created_at", data.from);
+    if (data.to)   query = query.lte("created_at", data.to);
+
+    const { data: orders, error } = await query;
     if (error) throw error;
     return orders;
   });
