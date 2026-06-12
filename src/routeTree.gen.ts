@@ -18,6 +18,7 @@ import { Route as GoSlugRouteImport } from './routes/go.$slug'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated.onboarding'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated.app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated.app.index'
+import { Route as AuthenticatedAppSimulationRouteImport } from './routes/_authenticated.app.simulation'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated.app.settings'
 import { Route as AuthenticatedAppOrdersRouteImport } from './routes/_authenticated.app.orders'
 import { Route as AuthenticatedAppMenuRouteImport } from './routes/_authenticated.app.menu'
@@ -69,6 +70,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppSimulationRoute =
+  AuthenticatedAppSimulationRouteImport.update({
+    id: '/simulation',
+    path: '/simulation',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppSettingsRoute =
   AuthenticatedAppSettingsRouteImport.update({
     id: '/settings',
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/app/simulation': typeof AuthenticatedAppSimulationRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/app/menu': typeof AuthenticatedAppMenuRoute
   '/app/orders': typeof AuthenticatedAppOrdersRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/app/simulation': typeof AuthenticatedAppSimulationRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/_authenticated/app/menu': typeof AuthenticatedAppMenuRoute
   '/_authenticated/app/orders': typeof AuthenticatedAppOrdersRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/_authenticated/app/simulation': typeof AuthenticatedAppSimulationRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/app/menu'
     | '/app/orders'
     | '/app/settings'
+    | '/app/simulation'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/app/menu'
     | '/app/orders'
     | '/app/settings'
+    | '/app/simulation'
     | '/app'
   id:
     | '__root__'
@@ -200,6 +212,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/menu'
     | '/_authenticated/app/orders'
     | '/_authenticated/app/settings'
+    | '/_authenticated/app/simulation'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/simulation': {
+      id: '/_authenticated/app/simulation'
+      path: '/simulation'
+      fullPath: '/app/simulation'
+      preLoaderRoute: typeof AuthenticatedAppSimulationRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/settings': {
       id: '/_authenticated/app/settings'
       path: '/settings'
@@ -329,6 +349,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppMenuRoute: typeof AuthenticatedAppMenuRoute
   AuthenticatedAppOrdersRoute: typeof AuthenticatedAppOrdersRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
+  AuthenticatedAppSimulationRoute: typeof AuthenticatedAppSimulationRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -339,6 +360,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppMenuRoute: AuthenticatedAppMenuRoute,
   AuthenticatedAppOrdersRoute: AuthenticatedAppOrdersRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
+  AuthenticatedAppSimulationRoute: AuthenticatedAppSimulationRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 

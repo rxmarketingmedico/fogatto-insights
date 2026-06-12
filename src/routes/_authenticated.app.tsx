@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, ShoppingBag, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { FogattoLogo } from "@/components/FogattoLogo";
@@ -42,6 +42,7 @@ function AppLayout() {
           <NavItem to="/app/campaigns" icon={<Megaphone size={18} />} label="Campanhas" />
           <NavItem to="/app/orders" icon={<ShoppingBag size={18} />} label="Pedidos" />
           <NavItem to="/app/audit" icon={<Users size={18} />} label="Auditoria" />
+          <NavItem to="/app/simulation" icon={<Database size={18} />} label="Simulador" />
           <NavItem to="/app/customers" icon={<Users size={18} />} label="Clientes" />
           <NavItem to="/app/settings" icon={<Settings size={18} />} label="Configurações" />
         </nav>

@@ -61,6 +61,21 @@ function DashboardIndex() {
     return acc;
   }, {});
 
+  const [filterCampaign, setFilterCampaign] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const campaigns = Array.from(new Set((stats?.orders ?? []).map(o => o.utm_campaign).filter(Boolean)));
+  const statuses = Array.from(new Set((stats?.orders ?? []).map(o => o.status).filter(Boolean)));
+
+  const filteredOrders = (stats?.orders ?? []).filter(o => {
+    const matchesCampaign = filterCampaign === "all" || o.utm_campaign === filterCampaign;
+    const matchesStatus = filterStatus === "all" || o.status === filterStatus;
+    return matchesCampaign && matchesStatus;
+  });
+
+  const filteredRevenue = filteredOrders.reduce((sum, o) => sum + Number(o.total), 0);
+  const filteredPaidRevenue = filteredOrders.filter(o => o.status === "paid").reduce((sum, o) => sum + Number(o.total), 0);
+
   const topSources = Object.entries(bySource)
     .sort((a, b) => b[1].revenue - a[1].revenue)
     .slice(0, 8);
@@ -97,26 +112,58 @@ function DashboardIndex() {
         </div>
       </div>
 
+      {/* Advanced Filters */}
+      <div className="bg-card border rounded-xl p-4 flex flex-wrap gap-4 items-end">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase">Campanha</label>
+          <select 
+            value={filterCampaign} 
+            onChange={(e) => setFilterCampaign(e.target.value)}
+            className="w-48 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">Todas as Campanhas</option>
+            {campaigns.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase">Status</label>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">Todos os Status</option>
+            {statuses.map(s => <option key={s} value={s}>{s === 'paid' ? 'Pago' : s === 'canceled' ? 'Cancelado' : s}</option>)}
+          </select>
+        </div>
+        <div className="flex-1" />
+        <div className="text-right hidden sm:block">
+          <p className="text-xs text-muted-foreground uppercase font-medium">Filtro Ativo</p>
+          <p className="text-lg font-bold text-primary">R$ {filteredRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+        </div>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Receita"
+          title="Receita (Total)"
           value={loadingStats ? "..." : `R$ ${(stats?.totalRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          sub={PERIODS.find(p => p.days === periodDays)?.label}
+          sub="período selecionado"
+        />
+        <StatCard
+          title="Receita Paga"
+          value={loadingStats ? "..." : `R$ ${filteredPaidRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          sub="status: paid"
         />
         <StatCard
           title="Pedidos"
-          value={loadingStats ? "..." : String(stats?.totalOrders ?? 0)}
-          sub={PERIODS.find(p => p.days === periodDays)?.label}
+          value={loadingStats ? "..." : String(filteredOrders.length)}
+          sub="conforme filtros"
         />
         <StatCard
-          title="Ticket Médio"
-          value={loadingStats ? "..." : `R$ ${(stats?.avgTicket ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-        />
-        <StatCard
-          title="Clientes Únicos"
-          value={loadingStats ? "..." : String(stats?.totalCustomers ?? 0)}
-          sub="total acumulado"
+          title="Receita Filtrada"
+          value={loadingStats ? "..." : `R$ ${filteredRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          sub="comparativo total"
         />
       </div>
 
