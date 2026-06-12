@@ -228,6 +228,26 @@ export const getCampaignRoas = createServerFn({ method: "GET" })
     });
   });
 
+export const updateOrderStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({
+      orderId: z.string().uuid(),
+      restaurantId: z.string().uuid(),
+      status: z.enum(["paid", "queued", "canceled"]),
+    }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: data.status })
+      .eq("id", data.orderId)
+      .eq("restaurant_id", data.restaurantId);
+    if (error) throw error;
+    return { success: true };
+  });
+
 export const getIfoodClicks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: any) =>

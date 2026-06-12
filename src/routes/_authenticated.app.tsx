@@ -1,9 +1,11 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, ShoppingBag, Database } from "lucide-react";
+import { LayoutDashboard, Utensils, Megaphone, Users, Settings, LogOut, ShoppingBag, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { FogattoLogo } from "@/components/FogattoLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CopilotChat } from "@/components/CopilotChat";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/app")({
   component: AppLayout,
@@ -12,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/app")({
 function AppLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const handleSignOut = async () => {
     await queryClient.cancelQueries();
@@ -41,11 +44,45 @@ function AppLayout() {
           <NavItem to="/app/menu" icon={<Utensils size={18} />} label="Cardápio" />
           <NavItem to="/app/campaigns" icon={<Megaphone size={18} />} label="Campanhas" />
           <NavItem to="/app/orders" icon={<ShoppingBag size={18} />} label="Pedidos" />
-          <NavItem to="/app/audit" icon={<Users size={18} />} label="Auditoria" />
-          <NavItem to="/app/simulation" icon={<Database size={18} />} label="Simulador" />
           <NavItem to="/app/customers" icon={<Users size={18} />} label="Clientes" />
           <NavItem to="/app/settings" icon={<Settings size={18} />} label="Configurações" />
         </nav>
+
+        {/* Copilot button */}
+        <div className="px-3 pb-1">
+          <button
+            onClick={() => setCopilotOpen(o => !o)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: copilotOpen ? "1px solid oklch(0.617 0.196 38.5 / 0.4)" : "1px solid transparent",
+              background: copilotOpen ? "oklch(0.617 0.196 38.5 / 0.12)" : "transparent",
+              cursor: "pointer",
+              color: copilotOpen ? "oklch(0.617 0.196 38.5)" : "var(--color-muted-foreground)",
+              fontFamily: "'Hanken Grotesk', system-ui, sans-serif",
+              fontSize: 14,
+              fontWeight: 600,
+              transition: "all 140ms ease",
+            }}
+          >
+            <Bot size={18} />
+            <span>Copilot</span>
+            <span style={{
+              marginLeft: "auto",
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              padding: "1px 5px",
+              borderRadius: 4,
+              background: "oklch(0.617 0.196 38.5 / 0.15)",
+              color: "oklch(0.617 0.196 38.5)",
+            }}>IA</span>
+          </button>
+        </div>
 
         {/* Theme toggle + Sign out */}
         <div className="p-3 flex flex-col gap-1" style={{ borderTop: "1px solid var(--color-sidebar-border)" }}>
@@ -100,6 +137,9 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Copilot drawer */}
+      <CopilotChat open={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>
   );
 }

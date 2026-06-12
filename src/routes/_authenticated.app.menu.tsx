@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRestaurant, getMenuItems, upsertMenuItem, deleteMenuItem } from "@/lib/api/restaurant.functions";
-import { Plus, Trash2, Edit2, Camera } from "lucide-react";
+import { Plus, Trash2, Edit2, Camera, Video } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -77,13 +77,20 @@ function MenuManagementPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items?.map(item => (
             <div key={item.id} className="border rounded-xl bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              {item.photo_url ? (
-                <img src={item.photo_url} alt={item.name} className="w-full h-40 object-cover" />
-              ) : (
-                <div className="w-full h-40 bg-muted flex items-center justify-center text-muted-foreground">
-                   <Camera size={32} />
-                </div>
-              )}
+              <div className="relative">
+                {item.photo_url ? (
+                  <img src={item.photo_url} alt={item.name} className="w-full h-40 object-cover" />
+                ) : (
+                  <div className="w-full h-40 bg-muted flex items-center justify-center text-muted-foreground">
+                    <Camera size={32} />
+                  </div>
+                )}
+                {item.video_url && (
+                  <span className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                    <Video size={10} /> Vídeo
+                  </span>
+                )}
+              </div>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2">
                    <h3 className="font-bold text-lg leading-tight">{item.name}</h3>
@@ -174,12 +181,25 @@ function MenuManagementPage() {
 
                  <div className="space-y-2">
                     <label className="text-sm font-medium">URL da Foto</label>
-                    <input 
+                    <input
                       className="w-full rounded-md border bg-background px-3 py-2"
                       value={editingItem.photo_url || ""}
                       onChange={e => setEditingItem({...editingItem, photo_url: e.target.value})}
                       placeholder="https://..."
                     />
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Video size={14} /> URL do Vídeo <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <input
+                      className="w-full rounded-md border bg-background px-3 py-2"
+                      value={editingItem.video_url || ""}
+                      onChange={e => setEditingItem({...editingItem, video_url: e.target.value || null})}
+                      placeholder="https://... (MP4, YouTube, etc.)"
+                    />
+                    <p className="text-xs text-muted-foreground">Será exibido no cardápio público do seu restaurante.</p>
                  </div>
 
                  <div className="flex items-center gap-2">

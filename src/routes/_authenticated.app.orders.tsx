@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRestaurant } from "@/lib/api/restaurant.functions";
-import { getOrders } from "@/lib/api/dashboard.functions";
+import { getOrders, updateOrderStatus } from "@/lib/api/dashboard.functions";
 import { useState, useMemo } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, CheckCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/orders")({
   component: OrdersPage,
@@ -62,6 +63,19 @@ function OrdersPage() {
     if (periodDays === 0)  return new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
     return new Date(Date.now() - periodDays * 86400000).toISOString();
   }, [periodDays]);
+
+  const queryClient = useQueryClient();
+  const doUpdateStatus = useServerFn(updateOrderStatus);
+
+  const statusMutation = useMutation({
+    mutationFn: (vars: { orderId: string; restaurantId: string; status: "paid" | "canceled" }) =>
+      doUpdateStatus({ data: vars }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success(vars.status === "paid" ? "Pedido marcado como pago." : "Pedido cancelado.");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders", restaurant?.id, periodDays],
@@ -234,19 +248,20 @@ function OrdersPage() {
               <th className="px-5 py-3 text-left">Status</th>
               <th className="px-5 py-3 text-right">Total</th>
               <th className="px-5 py-3 text-right">Data</th>
+              <th className="px-5 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {isLoading && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
                   Carregando pedidos...
                 </td>
               </tr>
             )}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
                   {hasFilters
                     ? "Nenhum pedido encontrado com estes filtros."
                     : "Nenhum pedido no período selecionado."}
@@ -301,6 +316,28 @@ function OrdersPage() {
                     <span className="text-[10px]">
                       {new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {o.status === "queued" && (
+                      <div className="flex justify-end gap-1">
+                        <button
+                          title="Marcar como pago"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({ orderId: o.id, restaurantId: restaurant!.id, status: "paid" })}
+                          className="p-1.5 rounded-md hover:bg-green-100 dark:hover:bg-green-950/40 text-muted-foreground hover:text-green-600 transition-colors disabled:opacity-40"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
+                        <button
+                          title="Cancelar pedido"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({ orderId: o.id, restaurantId: restaurant!.id, status: "canceled" })}
+                          className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-40"
+                        >
+                          <XCircle size={16} />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

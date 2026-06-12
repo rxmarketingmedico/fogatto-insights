@@ -95,8 +95,19 @@ function PublicMenuPage() {
 
       <main className="p-4 space-y-6">
         {items?.map(item => (
-          <div key={item.id} className="flex gap-4 p-3 border rounded-xl bg-card shadow-sm">
-            {item.photo_url && <img src={item.photo_url} alt={item.name} className="w-24 h-24 rounded-lg object-cover flex-shrink-0" />}
+          <div key={item.id} className="border rounded-xl bg-card shadow-sm overflow-hidden">
+            {item.video_url && (
+              <video
+                src={item.video_url}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full max-h-64 object-cover bg-black"
+                poster={item.photo_url ?? undefined}
+              />
+            )}
+            <div className="flex gap-4 p-3">
+            {!item.video_url && item.photo_url && <img src={item.photo_url} alt={item.name} className="w-24 h-24 rounded-lg object-cover flex-shrink-0" />}
             <div className="flex-grow">
               <h3 className="font-bold text-lg">{item.name}</h3>
               <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
@@ -112,6 +123,7 @@ function PublicMenuPage() {
                    <button onClick={() => addToCart(item.id)} className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">+</button>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         ))}

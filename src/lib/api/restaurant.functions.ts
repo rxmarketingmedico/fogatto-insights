@@ -101,6 +101,7 @@ export const upsertMenuItem = createServerFn({ method: "POST" })
       description: z.string().optional().nullable(),
       price: z.number().min(0),
       photo_url: z.string().optional().nullable(),
+      video_url: z.string().optional().nullable(),
       active: z.boolean().default(true),
       position: z.number().default(0),
     }).parse(data)
