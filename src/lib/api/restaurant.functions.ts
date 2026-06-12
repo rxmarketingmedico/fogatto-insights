@@ -4,17 +4,38 @@ import { z } from "zod";
 
 export const getRestaurant = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
+  .inputValidator((data: any) =>
+    z.object({ id: z.string().uuid().optional() }).optional().parse(data ?? {})
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let query = supabase
+      .from("restaurants")
+      .select("*")
+      .eq("owner_id", userId);
+
+    if (data?.id) {
+      query = query.eq("id", data.id).limit(1);
+    } else {
+      query = query.order("created_at", { ascending: true }).limit(1);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw error;
+    return rows?.[0] ?? null;
+  });
+
+export const listRestaurants = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const { data, error } = await supabase
       .from("restaurants")
-      .select("*")
+      .select("id, name, slug, created_at")
       .eq("owner_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(1);
-
+      .order("created_at", { ascending: true });
     if (error) throw error;
-    return data?.[0] ?? null;
+    return data ?? [];
   });
 
 export const updateRestaurant = createServerFn({ method: "POST" })
