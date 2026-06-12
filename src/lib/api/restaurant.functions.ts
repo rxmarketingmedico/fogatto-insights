@@ -11,11 +11,10 @@ export const getRestaurant = createServerFn({ method: "GET" })
       .select("*")
       .eq("owner_id", userId)
       .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
     if (error) throw error;
-    return data;
+    return data?.[0] ?? null;
   });
 
 export const updateRestaurant = createServerFn({ method: "POST" })
