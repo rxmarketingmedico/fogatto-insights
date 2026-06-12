@@ -117,7 +117,7 @@ function DashboardIndex() {
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase">Campanha</label>
           <select 
-            value={filterCampaign} 
+            value={filterCampaign || "all"} 
             onChange={(e) => setFilterCampaign(e.target.value)}
             className="w-48 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
@@ -128,7 +128,7 @@ function DashboardIndex() {
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase">Status</label>
           <select 
-            value={filterStatus} 
+            value={filterStatus || "all"} 
             onChange={(e) => setFilterStatus(e.target.value)}
             className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
