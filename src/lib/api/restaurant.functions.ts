@@ -10,6 +10,8 @@ export const getRestaurant = createServerFn({ method: "GET" })
       .from("restaurants")
       .select("*")
       .eq("owner_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;
